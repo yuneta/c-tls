@@ -289,12 +289,14 @@ PRIVATE int mt_start(hgobj gobj)
 //             } else {
 //                 uv_close((uv_handle_t *)&priv->uv_socket, 0);
 //                 priv->uv_socket_open = 0;
+//                  freeaddrinfo(res);
 //                 return -1;
 //             }
 //         }
     }
 
     r = uv_tcp_bind(&priv->uv_socket, res->ai_addr, 0);
+    freeaddrinfo(res);
     if(r) {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
@@ -314,7 +316,6 @@ PRIVATE int mt_start(hgobj gobj)
             return -1;
         }
     }
-    freeaddrinfo(res);
     uv_tcp_simultaneous_accepts(&priv->uv_socket, 1);
     if(gobj_trace_level(gobj) & TRACE_UV) {
         log_debug_printf(0, ">>> uv_listen tcp p=%p", &priv->uv_socket);
