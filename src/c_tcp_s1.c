@@ -729,59 +729,6 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
         gobj_destroy(clisrv);
         return;
     }
-
-    /*--------------------------------------*
-     *  Only when accept the connection
-     *  we know the peername.
-     *  TODO allowed/denied esto no está bien, revísalo!
-     *  Hay que comprobar las allowed/denied al elegir el tree!
-     *  Revisa accept_connection
-     *--------------------------------------*/
-    /*--------------------------------------*
-     *  Check allowed url's
-     *--------------------------------------*/
-    const char *peername = gobj_read_str_attr(clisrv, "peername");
-    if(gobj_has_attr(gobj_top, "allowd_urls")) {
-        json_t *jn_urllist = gobj_read_json_attr(gobj_top, "allowd_urls");
-        if(jn_urllist && json_array_size(jn_urllist)>0) {
-            if(!match_allowed_urls(gobj, peername, jn_urllist)) {
-                if(gobj_trace_level(gobj) & TRACE_NOT_ACCEPTED) {
-                    log_info(0,
-                        "gobj",         "%s", gobj_full_name(gobj),
-                        "function",     "%s", __FUNCTION__,
-                        "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                        "msg",          "%s", "Clisrv not accepted: Not match allowed url",
-                        NULL
-                    );
-                }
-                gobj_stop(clisrv);
-                gobj_destroy(clisrv);
-                return;
-            }
-        }
-    }
-    /*--------------------------------------*
-     *  Check denied url's
-     *--------------------------------------*/
-    if(gobj_has_attr(gobj_top, "denied_urls")) {
-        json_t *jn_urllist = gobj_read_json_attr(gobj_top, "denied_urls");
-        if(jn_urllist && json_array_size(jn_urllist)>0) {
-            if(match_denied_urls(gobj, peername, jn_urllist)) {
-                if(gobj_trace_level(gobj) & TRACE_NOT_ACCEPTED) {
-                    log_info(0,
-                        "gobj",         "%s", gobj_full_name(gobj),
-                        "function",     "%s", __FUNCTION__,
-                        "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                        "msg",          "%s", "Clisrv not accepted: Match denied url",
-                        NULL
-                    );
-                }
-                gobj_stop(clisrv);
-                gobj_destroy(clisrv);
-                return;
-            }
-        }
-    }
 }
 
 
