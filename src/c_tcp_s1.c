@@ -162,7 +162,7 @@ PRIVATE void mt_destroy(hgobj gobj)
     EXEC_AND_RESET(ytls_cleanup, priv->ytls);
 
     if(!gobj_in_this_state(gobj, "ST_STOPPED")) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_LIBUV_ERROR,

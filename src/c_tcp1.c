@@ -73,7 +73,6 @@ SDATA (ASN_UNSIGNED,    "max_tx_queue",             SDF_WR,         0,          
 SDATA (ASN_COUNTER64,   "cur_tx_queue",             SDF_RD,         0,              "Current messages in tx queue"),
 SDATA (ASN_BOOLEAN,     "clisrv",                   SDF_RD,         0,              "Client of tcp server"),
 SDATA (ASN_BOOLEAN,     "output_priority",          SDF_RD|SDF_WR,  0,              "Make output priority"),
-SDATA (ASN_INTEGER,     "timeout_handshake",        SDF_RD|SDF_WR,  10,             "Handshake timeout"),
 SDATA (ASN_POINTER,     "user_data",                0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",               0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",               0,              0,              "subscriber of output-events. Default if null is parent."),
@@ -98,8 +97,6 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
  *              Private data
  *---------------------------------------------*/
 typedef struct _PRIVATE_DATA {
-    hgobj timer;
-    int32_t timeout_handshake;
     uv_tcp_t uv_socket;
     uv_connect_t uv_req_connect;
     uv_write_t uv_req_write;
@@ -162,8 +159,6 @@ PRIVATE void mt_create(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
-
     dl_init(&priv->dl_tx);
 
     priv->ptxBytes = gobj_danger_attr_ptr(gobj, "txBytes");
@@ -186,7 +181,6 @@ PRIVATE void mt_create(hgobj gobj)
      *  Do copy of heavy used parameters, for quick access.
      *  HACK The writable attributes must be repeated in mt_writing method.
      */
-    SET_PRIV(timeout_handshake,             gobj_read_int32_attr)
     SET_PRIV(connected_event_name,          gobj_read_str_attr)
     SET_PRIV(tx_ready_event_name,           gobj_read_str_attr)
     SET_PRIV(rx_data_event_name,            gobj_read_str_attr)
@@ -211,7 +205,6 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     IF_EQ_SET_PRIV(connected_event_name,            gobj_read_str_attr)
-    ELIF_EQ_SET_PRIV(timeout_handshake,             gobj_read_int32_attr)
     ELIF_EQ_SET_PRIV(tx_ready_event_name,           gobj_read_str_attr)
     ELIF_EQ_SET_PRIV(rx_data_event_name,            gobj_read_str_attr)
     ELIF_EQ_SET_PRIV(disconnected_event_name,       gobj_read_str_attr)
@@ -259,8 +252,6 @@ PRIVATE int mt_start(hgobj gobj)
         return -1;
     }
 
-    gobj_start(priv->timer);
-
     if(gobj_trace_level(gobj) & TRACE_UV) {
         trace_msg(">>> uv_init tcp1 p=%p", &priv->uv_socket);
     }
@@ -289,8 +280,6 @@ PRIVATE int mt_stop(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    clear_timeout(priv->timer);
-
     if(gobj_cmp_current_state(gobj, "ST_WAIT_HANDSHAKE")>=0) {
         if(priv->sskt) {
             ytls_free_secure_filter(priv->ytls, priv->sskt);
@@ -300,8 +289,6 @@ PRIVATE int mt_stop(hgobj gobj)
         return 0;
     }
     do_close(gobj);
-
-    gobj_stop(priv->timer);
 
     return 0;
 }
@@ -314,7 +301,7 @@ PRIVATE void mt_destroy(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(priv->uv_handler_active) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_OPERATIONAL_ERROR,
@@ -463,7 +450,6 @@ PRIVATE void set_connected(hgobj gobj)
 
     gobj_change_state(gobj, "ST_WAIT_HANDSHAKE");
     get_peer_and_sock_name(gobj);
-    set_timeout_periodic(priv->timer, priv->timeout_handshake);
 
     priv->sskt = ytls_new_secure_filter(
         priv->ytls,
@@ -909,15 +895,6 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
     }
     gbuf_append(gbuf, buf->base, nread);
     ytls_decrypt_data(priv->ytls, priv->sskt, gbuf);
-    if(gbuf_leftbytes(gbuf) > 0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "NOT ALL DATA being decrypted",
-            NULL
-        );
-    }
 }
 
 /***************************************************************************
@@ -1103,7 +1080,9 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
     gobj_incr_qs(QS_TXBYTES, ln);
     (*priv->ptxFrames)++;
 
-    gobj_change_state(gobj, "ST_WAIT_TXED");
+    if(!gobj_in_this_state(gobj, "ST_WAIT_HANDSHAKE")) {
+        gobj_change_state(gobj, "ST_WAIT_TXED");
+    }
 
     return 0;
 }
@@ -1154,7 +1133,9 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
          */
         return 0;
     }
-    gobj_change_state(gobj, "ST_WAIT_TXED");
+    if(!gobj_in_this_state(gobj, "ST_WAIT_HANDSHAKE")) {
+        gobj_change_state(gobj, "ST_WAIT_TXED");
+    }
 
     uint32_t trace = gobj_trace_level(gobj);
 
@@ -1250,7 +1231,6 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
         }
     }
 
-
     return 0;
 }
 
@@ -1259,10 +1239,6 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
  ***************************************************************************/
 PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    clear_timeout(priv->timer);
-
     if(error < 0) {
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
@@ -1350,6 +1326,7 @@ PRIVATE int ac_tx_clear_data(hgobj gobj, const char *event, json_t *kw, hgobj sr
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     GBUFFER *gbuf = (GBUFFER *)(size_t)kw_get_int(kw, "gbuffer", 0, 0);
 
+    GBUF_INCREF(gbuf);
     if(ytls_encrypt_data(priv->ytls, priv->sskt, gbuf)<0) {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
@@ -1430,25 +1407,8 @@ PRIVATE int ac_enqueue_encrypted_data(hgobj gobj, const char *event, json_t *kw,
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int ac_timeout_handshake(hgobj gobj, const char *event, json_t *kw, hgobj src)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    ytls_do_handshake(priv->ytls, priv->sskt);
-
-    KW_DECREF(kw);
-    return 0;
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
 PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    clear_timeout(priv->timer);
-
     if(gobj_is_running(gobj)) {
         gobj_stop(gobj);
     }
@@ -1465,7 +1425,6 @@ PRIVATE const EVENT input_events[] = {
     {"EV_DROP",                 0,  0,  ""},
     // bottom input
     {"EV_STOPPED",              0,  0,  ""},
-    {"EV_TIMEOUT",              0,  0,  ""},
     // internal
     {"EV_SEND_ENCRYPTED_DATA",  0,  0,  ""},
     {NULL, 0, 0, ""}
@@ -1506,8 +1465,7 @@ PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_HANDSHAKE[] = {
-    {"EV_TIMEOUT",              ac_timeout_handshake,       0},
-    {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     "ST_WAIT_TXED"},
+    {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     0},
     {"EV_DROP",                 ac_drop,                    0},
     {0,0,0}
 };
