@@ -281,14 +281,14 @@ PRIVATE int mt_stop(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(gobj_cmp_current_state(gobj, "ST_WAIT_HANDSHAKE")>=0) {
-        if(priv->sskt) {
-            ytls_free_secure_filter(priv->ytls, priv->sskt);
-            priv->sskt = 0;
-        }
         do_shutdown(gobj);
         return 0;
     }
     do_close(gobj);
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
+    }
 
     return 0;
 }
@@ -890,11 +890,23 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
             "msgset",       "%s", MSGSET_MEMORY_ERROR,
             "msg",          "%s", "no memory for gbuf",
             "size",         "%d", nread,
-            NULL);
+            NULL
+        );
         return;
     }
     gbuf_append(gbuf, buf->base, nread);
-    ytls_decrypt_data(priv->ytls, priv->sskt, gbuf);
+    if(priv->sskt) {
+        ytls_decrypt_data(priv->ytls, priv->sskt, gbuf);
+    } else {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "secure socket closed",
+            NULL
+        );
+        GBUF_DECREF(gbuf);
+    }
 }
 
 /***************************************************************************
@@ -1326,27 +1338,36 @@ PRIVATE int ac_tx_clear_data(hgobj gobj, const char *event, json_t *kw, hgobj sr
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     GBUFFER *gbuf = (GBUFFER *)(size_t)kw_get_int(kw, "gbuffer", 0, 0);
 
-    GBUF_INCREF(gbuf);
-    if(ytls_encrypt_data(priv->ytls, priv->sskt, gbuf)<0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_SYSTEM_ERROR,
-            "msg",          "%s", "ytls_encrypt_data() FAILED",
-            "error",        "%s", ytls_get_last_error(priv->ytls, priv->sskt),
-            NULL
-        );
-        if(gobj_is_running(gobj)) {
-            gobj_stop(gobj); // auto-stop
+    if(priv->sskt) {
+        GBUF_INCREF(gbuf);
+        if(ytls_encrypt_data(priv->ytls, priv->sskt, gbuf)<0) {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_SYSTEM_ERROR,
+                "msg",          "%s", "ytls_encrypt_data() FAILED",
+                "error",        "%s", ytls_get_last_error(priv->ytls, priv->sskt),
+                NULL
+            );
+            if(gobj_is_running(gobj)) {
+                gobj_stop(gobj); // auto-stop
+            }
         }
-    }
-
-    if(gbuf_leftbytes(gbuf) > 0) {
+        if(gbuf_leftbytes(gbuf) > 0) {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+                "msg",          "%s", "NEED a queue, NOT ALL DATA being encrypted",
+                NULL
+            );
+        }
+    } else {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "NEED a queue, NOT ALL DATA being encrypted",
+            "msg",          "%s", "secure socket closed",
             NULL
         );
     }
@@ -1457,7 +1478,7 @@ PRIVATE EV_ACTION ST_WAIT_STOPPED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_CONNECTED[] = {
-    {"EV_DROP",                 ac_drop,                    0},
+    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
@@ -1466,19 +1487,19 @@ PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
 };
 PRIVATE EV_ACTION ST_WAIT_HANDSHAKE[] = {
     {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     0},
-    {"EV_DROP",                 ac_drop,                    0},
+    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_CONNECTED[] = {
     {"EV_TX_DATA",              ac_tx_clear_data,           0},
     {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     "ST_WAIT_TXED"},
-    {"EV_DROP",                 ac_drop,                    0},
+    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_TXED[] = {
     {"EV_TX_DATA",              ac_tx_clear_data,           0},
     {"EV_SEND_ENCRYPTED_DATA",  ac_enqueue_encrypted_data,  "ST_WAIT_TXED"},
-    {"EV_DROP",                 ac_drop,                    0},
+    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
     {0,0,0}
 };
 
