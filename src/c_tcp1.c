@@ -278,17 +278,11 @@ PRIVATE int mt_start(hgobj gobj)
  ***************************************************************************/
 PRIVATE int mt_stop(hgobj gobj)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
     if(gobj_cmp_current_state(gobj, "ST_WAIT_HANDSHAKE")>=0) {
         do_shutdown(gobj);
         return 0;
     }
     do_close(gobj);
-    if(priv->sskt) {
-        ytls_free_secure_filter(priv->ytls, priv->sskt);
-        priv->sskt = 0;
-    }
 
     return 0;
 }
@@ -349,6 +343,10 @@ PRIVATE void mt_destroy(hgobj gobj)
     /*
      *  Free data
      */
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
+    }
     if(priv->gbuf_txing) {
         gbuf_decref(priv->gbuf_txing);
         priv->gbuf_txing = 0;

@@ -499,6 +499,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
                         "function",     "%s", __FUNCTION__,
                         "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
                         "msg",          "%s", "Clisrv1 not accepted: no free child tree found",
+                        "filter",       "%j", jn_filter,
                         NULL
                     );
                 }
