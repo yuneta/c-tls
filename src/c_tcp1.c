@@ -278,6 +278,12 @@ PRIVATE int mt_start(hgobj gobj)
  ***************************************************************************/
 PRIVATE int mt_stop(hgobj gobj)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
+    }
     if(gobj_cmp_current_state(gobj, "ST_WAIT_HANDSHAKE")>=0) {
         do_shutdown(gobj);
         return 0;
@@ -1472,6 +1478,7 @@ PRIVATE EV_ACTION ST_STOPPED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_STOPPED[] = {
+    {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     0},
     {"EV_STOPPED",              0,                          0},
     {0,0,0}
 };
