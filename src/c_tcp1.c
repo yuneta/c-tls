@@ -40,8 +40,8 @@ PRIVATE void do_shutdown(hgobj gobj);
 PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf);
 PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready);
 PRIVATE int on_handshake_done_cb(void *user_data, int error);
-PRIVATE int on_clear_data_cb(void *user_data, GBUFFER *gbuf, int error);
-PRIVATE int on_encrypted_data_cb(void *user_data, GBUFFER *gbuf, int error);
+PRIVATE int on_clear_data_cb(void *user_data, GBUFFER *gbuf);
+PRIVATE int on_encrypted_data_cb(void *user_data, GBUFFER *gbuf);
 
 /***************************************************************************
  *          Data: config, public data, private data
@@ -398,14 +398,6 @@ PRIVATE void on_close_cb(uv_handle_t* handle)
 
     if(priv->inform_disconnection) {
         priv->inform_disconnection = FALSE;
-// Esto ocurre cuando el agent no autoriza un identity-card y corta la conexión.
-//         log_error(0,
-//             "gobj",         "%s", gobj_full_name(gobj),
-//             "function",     "%s", __FUNCTION__,
-//             "msgset",       "%s", MSGSET_OPERATIONAL_ERROR,
-//             "msg",          "%s", "set_disconnected() NOT EXECUTED",
-//             NULL
-//         );
         if(!empty_string(priv->disconnected_event_name)) {
             gobj_publish_event(gobj, priv->disconnected_event_name, 0);
         }
@@ -534,6 +526,11 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
             "cause",        "%s", cause?cause:"",
             NULL
         );
+    }
+
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
     }
 
     priv->secure_connected = FALSE;
@@ -856,6 +853,10 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
                 "uv_error",     "%s", uv_err_name(nread),
                 NULL
             );
+        }
+        if(priv->sskt) {
+            ytls_free_secure_filter(priv->ytls, priv->sskt);
+            priv->sskt = 0;
         }
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
@@ -1269,20 +1270,9 @@ PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int on_clear_data_cb(hgobj gobj, GBUFFER *gbuf, int error)
+PRIVATE int on_clear_data_cb(hgobj gobj, GBUFFER *gbuf)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(error<0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_SYSTEM_ERROR,
-            "msg",          "%s", "on_clear_data_cb() FAILED",
-            "error",        "%s", ytls_get_last_error(priv->ytls, priv->sskt),
-            NULL
-        );
-    }
 
     if(gobj_trace_level(gobj) & TRACE_DUMP_TRAFFIC) {
         log_debug_gbuf(LOG_DUMP_INPUT, gbuf, "clear data");
@@ -1298,21 +1288,8 @@ PRIVATE int on_clear_data_cb(hgobj gobj, GBUFFER *gbuf, int error)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int on_encrypted_data_cb(hgobj gobj, GBUFFER *gbuf, int error)
+PRIVATE int on_encrypted_data_cb(hgobj gobj, GBUFFER *gbuf)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(error<0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_SYSTEM_ERROR,
-            "msg",          "%s", "on_clear_data_cb() FAILED",
-            "error",        "%s", ytls_get_last_error(priv->ytls, priv->sskt),
-            NULL
-        );
-    }
-
     if(gobj_trace_level(gobj) & TRACE_DUMP_TRAFFIC) {
         log_debug_gbuf(LOG_DUMP_OUTPUT, gbuf, "encrypted data");
     }
@@ -1478,7 +1455,6 @@ PRIVATE EV_ACTION ST_STOPPED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_STOPPED[] = {
-    {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     0},
     {"EV_STOPPED",              0,                          0},
     {0,0,0}
 };
