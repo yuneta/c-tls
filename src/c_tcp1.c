@@ -533,7 +533,7 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
         priv->sskt = 0;
     }
 
-    priv->secure_connected = FALSE;
+    //priv->secure_connected = FALSE;
 
     gobj_change_state(gobj, "ST_STOPPED");
 
@@ -1101,8 +1101,10 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
     gobj_incr_qs(QS_TXBYTES, ln);
     (*priv->ptxFrames)++;
 
-    if(!gobj_in_this_state(gobj, "ST_WAIT_HANDSHAKE")) {
-        gobj_change_state(gobj, "ST_WAIT_TXED");
+    if(priv->secure_connected) {
+        if(gobj_in_this_state(gobj, "ST_CONNECTED")) {
+            gobj_change_state(gobj, "ST_WAIT_TXED");
+        }
     }
 
     return 0;
@@ -1148,14 +1150,10 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    if(gobj_cmp_current_state(gobj, "ST_CONNECTED")<0) {
-        /*
-         *  Parece que han desconectado
-         */
-        return 0;
-    }
-    if(!gobj_in_this_state(gobj, "ST_WAIT_HANDSHAKE")) {
-        gobj_change_state(gobj, "ST_WAIT_TXED");
+    if(priv->secure_connected) {
+        if(gobj_in_this_state(gobj, "ST_CONNECTED")) {
+            gobj_change_state(gobj, "ST_WAIT_TXED");
+        }
     }
 
     uint32_t trace = gobj_trace_level(gobj);
@@ -1226,8 +1224,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
                 */
                 GBUFFER *tx = priv->gbuf_txing;
                 priv->gbuf_txing = 0; // Avoid error in do_write()
-                do_write(gobj, tx);  // continue with gbuf_txing
-                return 0;
+                return do_write(gobj, tx);  // continue with gbuf_txing
             } else {
                 /*
                  *  Falló la conexión
@@ -1241,9 +1238,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
         }
     }
 
-    if(!priv->secure_connected) {
-        gobj_change_state(gobj, "ST_WAIT_HANDSHAKE");
-    } else {
+    if(priv->secure_connected) {
         gobj_change_state(gobj, "ST_CONNECTED");
         if(inform_tx_ready) {
             if(!empty_string(priv->tx_ready_event_name)) {
@@ -1316,7 +1311,7 @@ PRIVATE int on_encrypted_data_cb(hgobj gobj, GBUFFER *gbuf)
 
 
 /***************************************************************************
- *  Clear data
+ *  Sending data not encrypted
  ***************************************************************************/
 PRIVATE int ac_tx_clear_data(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
