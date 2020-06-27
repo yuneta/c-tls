@@ -901,7 +901,11 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
     }
     gbuf_append(gbuf, buf->base, nread);
     if(priv->sskt) {
-        ytls_decrypt_data(priv->ytls, priv->sskt, gbuf);
+        if(ytls_decrypt_data(priv->ytls, priv->sskt, gbuf)<0) {
+            if(gobj_is_running(gobj)) {
+                gobj_stop(gobj); // auto-stop
+            }
+        }
     } else {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
@@ -1463,6 +1467,8 @@ PRIVATE EV_ACTION ST_WAIT_CONNECTED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
+    {"EV_DROP",                 ac_drop,                    0}, // HACK no tenemos timeout
+                                                                // Father insists
     {"EV_STOPPED",              0,                          0},
     {0,0,0}
 };
