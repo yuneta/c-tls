@@ -875,7 +875,7 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
     if(gobj_trace_level(gobj) & TRACE_DUMP_TRAFFIC) {
         log_debug_dump(
-            0,
+            LOG_DUMP_INPUT,
             buf->base,
             nread,
             "%s: %s%s%s",
@@ -1086,7 +1086,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
     }
     if((trace & TRACE_DUMP_TRAFFIC)) {
         log_debug_dump(
-            0,
+            LOG_DUMP_OUTPUT,
             bf,
             ln,
             "%s: %s%s%s",
@@ -1198,7 +1198,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
              */
             if((trace & TRACE_DUMP_TRAFFIC)) {
                 log_debug_dump(
-                    0,
+                    LOG_DUMP_OUTPUT,
                     bf,
                     ln,
                     "%s: %s%s%s",
@@ -1274,7 +1274,7 @@ PRIVATE int on_clear_data_cb(hgobj gobj, GBUFFER *gbuf)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(gobj_trace_level(gobj) & TRACE_DUMP_TRAFFIC) {
-        log_debug_gbuf(LOG_DUMP_INPUT, gbuf, "clear data");
+        log_debug_gbuf(LOG_DUMP_INPUT, gbuf, "decrypted data");
     }
 
     json_t *kw = json_pack("{s:I}",
@@ -1319,6 +1319,9 @@ PRIVATE int ac_tx_clear_data(hgobj gobj, const char *event, json_t *kw, hgobj sr
     GBUFFER *gbuf = (GBUFFER *)(size_t)kw_get_int(kw, "gbuffer", 0, 0);
 
     if(priv->sskt) {
+        if(gobj_trace_level(gobj) & TRACE_DUMP_TRAFFIC) {
+            log_debug_gbuf(LOG_DUMP_OUTPUT, gbuf, "tx clear data");
+        }
         GBUF_INCREF(gbuf);
         if(ytls_encrypt_data(priv->ytls, priv->sskt, gbuf)<0) {
             log_error(0,
