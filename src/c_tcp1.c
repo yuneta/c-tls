@@ -1027,7 +1027,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(priv->uv_req_write_active) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_OPERATIONAL_ERROR,
