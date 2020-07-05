@@ -504,7 +504,6 @@ PRIVATE void set_secure_connected(hgobj gobj)
     }
 
     ytls_flush(priv->ytls, priv->sskt);
-    // TODO flush()
 }
 
 /***************************************************************************
@@ -1102,11 +1101,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
     gobj_incr_qs(QS_TXBYTES, ln);
     (*priv->ptxFrames)++;
 
-    if(priv->secure_connected) {
-        if(gobj_in_this_state(gobj, "ST_CONNECTED")) {
-            gobj_change_state(gobj, "ST_WAIT_TXED");
-        }
-    }
+    gobj_change_state(gobj, "ST_WAIT_TXED");
 
     return 0;
 }
@@ -1151,11 +1146,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    if(priv->secure_connected) {
-        if(gobj_in_this_state(gobj, "ST_CONNECTED")) {
-            gobj_change_state(gobj, "ST_WAIT_TXED");
-        }
-    }
+    gobj_change_state(gobj, "ST_WAIT_TXED");
 
     uint32_t trace = gobj_trace_level(gobj);
 
@@ -1246,6 +1237,8 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
                 gobj_publish_event(gobj, priv->tx_ready_event_name, 0);
             }
         }
+    } else {
+        gobj_change_state(gobj, "ST_WAIT_HANDSHAKE");
     }
 
     return 0;
