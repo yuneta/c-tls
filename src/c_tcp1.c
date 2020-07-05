@@ -495,8 +495,6 @@ PRIVATE void set_secure_connected(hgobj gobj)
         );
     }
 
-    try_write_all(gobj, FALSE);
-
     if(!empty_string(priv->connected_event_name)) {
         json_t *kw_ev = json_pack("{s:s, s:s}",
             "peername", priv->peername,
@@ -504,6 +502,9 @@ PRIVATE void set_secure_connected(hgobj gobj)
         );
         gobj_publish_event(gobj, priv->connected_event_name, kw_ev);
     }
+
+    ytls_flush(priv->ytls, priv->sskt);
+    // TODO flush()
 }
 
 /***************************************************************************
