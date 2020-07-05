@@ -71,7 +71,7 @@ SDATA (ASN_OCTET_STR,   "rx_data_event_name",       SDF_RD,         "EV_RX_DATA"
 SDATA (ASN_OCTET_STR,   "stopped_event_name",       SDF_RD,         "EV_STOPPED",   "Stopped event name"),
 SDATA (ASN_UNSIGNED,    "max_tx_queue",             SDF_WR,         0,              "Maximum messages in tx queue. Default is 0: no limit."),
 SDATA (ASN_COUNTER64,   "cur_tx_queue",             SDF_RD,         0,              "Current messages in tx queue"),
-SDATA (ASN_BOOLEAN,     "clisrv",                   SDF_RD,         0,              "Client of tcp server"),
+SDATA (ASN_BOOLEAN,     "__clisrv__",                   SDF_RD,         0,              "Client of tcp server"),
 SDATA (ASN_BOOLEAN,     "output_priority",          SDF_RD|SDF_WR,  0,              "Make output priority"),
 SDATA (ASN_POINTER,     "user_data",                0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",               0,              0,              "more user data"),
@@ -261,7 +261,7 @@ PRIVATE int mt_start(hgobj gobj)
     uv_tcp_nodelay(&priv->uv_socket, 1);
     uv_tcp_keepalive(&priv->uv_socket, priv->kpAlive?1:0, priv->kpAlive);
 
-    if(!gobj_read_bool_attr(gobj, "clisrv")) {
+    if(!gobj_read_bool_attr(gobj, "__clisrv__")) {
         /*
          * pure tcp client: try to connect
          */
@@ -544,7 +544,7 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
         }
     }
 
-    if(gobj_read_bool_attr(gobj, "clisrv")) {
+    if(gobj_read_bool_attr(gobj, "__clisrv__")) {
         gobj_write_str_attr(gobj, "peername", "");
     } else {
         gobj_write_str_attr(gobj, "sockname", "");

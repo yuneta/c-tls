@@ -488,9 +488,10 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
          *      New method
          *--------------------------------*/
         const char *op = kw_get_str(jn_child_tree_filter, "op", "find", 0);
-        json_t *jn_filter = kw_get_dict(jn_child_tree_filter, "kw", 0, 0);
+        json_t *jn_filter = json_deep_copy(kw_get_dict(jn_child_tree_filter, "kw", json_object(), 0));
+        // HACK si llegan dos on_connection_cb seguidos coge el mismo tree, protege internamente
+        json_object_set_new(jn_filter, "__clisrv__", json_false());
         if(1 || strcmp(op, "find")==0) { // here, only find operation is valid.
-            JSON_INCREF(jn_filter);
             gobj_top = gobj_find_child(gobj_parent(gobj), jn_filter);
             if(!gobj_top) {
                 if(gobj_trace_level(gobj) & TRACE_NOT_ACCEPTED) {
@@ -601,7 +602,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
     );
     gobj_write_bool_attr(
         clisrv,
-        "clisrv",
+        "__clisrv__",
         TRUE
     );
 
