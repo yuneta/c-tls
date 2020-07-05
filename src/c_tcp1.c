@@ -477,7 +477,8 @@ PRIVATE void set_secure_connected(hgobj gobj)
 
     priv->inform_disconnection = TRUE;
     priv->secure_connected = TRUE;
-    gobj_change_state(gobj, "ST_CONNECTED");
+
+    // HACK no pongo estado connected, vendrá puesto por el on_write_cb
 
     /*
      *  Info of "connected"
