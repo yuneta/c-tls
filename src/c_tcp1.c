@@ -1255,6 +1255,16 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
  ***************************************************************************/
 PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
 {
+    if(gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+        log_info(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+            "msg",          "%s", error<0?"TLS handshake FAILS":"TLS Handshake OK",
+            "error",        "%d", error,
+            NULL
+        );
+    }
+
     if(error < 0) {
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
