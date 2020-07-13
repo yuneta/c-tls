@@ -478,7 +478,7 @@ PRIVATE void set_secure_connected(hgobj gobj)
     priv->inform_disconnection = TRUE;
     priv->secure_connected = TRUE;
 
-    // HACK no pongo estado connected, vendrá puesto por el on_write_cb
+    gobj_change_state(gobj, "ST_CONNECTED");
 
     /*
      *  Info of "connected"
@@ -534,7 +534,7 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
         priv->sskt = 0;
     }
 
-    //priv->secure_connected = FALSE;
+    //priv->secure_connected = FALSE; // Dejalo siempre marcado como secure
 
     gobj_change_state(gobj, "ST_STOPPED");
 
@@ -1404,8 +1404,6 @@ PRIVATE int ac_send_encrypted_data(hgobj gobj, const char *event, json_t *kw, hg
 PRIVATE int ac_enqueue_encrypted_data(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     GBUFFER *gbuf = (GBUFFER *)(size_t)kw_get_int(kw, "gbuffer", 0, 0);
-
-    // TODO crea cola para encriptar
 
     gbuf_incref(gbuf); // Quédate una copia
     enqueue_write(gobj, gbuf);
