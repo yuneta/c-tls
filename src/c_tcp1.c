@@ -1467,7 +1467,7 @@ PRIVATE EV_ACTION ST_WAIT_STOPPED[] = {
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_CONNECTED[] = {
-    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
+    {"EV_DROP",                 ac_drop,                    0},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
@@ -1478,19 +1478,19 @@ PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
 };
 PRIVATE EV_ACTION ST_WAIT_HANDSHAKE[] = {
     {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     0},
-    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
+    {"EV_DROP",                 ac_drop,                    0},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_CONNECTED[] = {
     {"EV_TX_DATA",              ac_tx_clear_data,           0},
     {"EV_SEND_ENCRYPTED_DATA",  ac_send_encrypted_data,     "ST_WAIT_TXED"},
-    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
+    {"EV_DROP",                 ac_drop,                    0},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_WAIT_TXED[] = {
     {"EV_TX_DATA",              ac_tx_clear_data,           0},
     {"EV_SEND_ENCRYPTED_DATA",  ac_enqueue_encrypted_data,  "ST_WAIT_TXED"},
-    {"EV_DROP",                 ac_drop,                    "ST_WAIT_STOPPED"},
+    {"EV_DROP",                 ac_drop,                    0},
     {0,0,0}
 };
 
