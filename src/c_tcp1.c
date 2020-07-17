@@ -529,11 +529,6 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
         );
     }
 
-    if(priv->sskt) {
-        ytls_free_secure_filter(priv->ytls, priv->sskt);
-        priv->sskt = 0;
-    }
-
     //priv->secure_connected = FALSE; // Dejalo siempre marcado como secure
 
     gobj_change_state(gobj, "ST_STOPPED");
@@ -955,6 +950,10 @@ PRIVATE void do_shutdown(hgobj gobj)
             NULL
         );
         return;
+    }
+
+    if(priv->sskt) {
+        ytls_shutdown(priv->ytls, priv->sskt);
     }
 
     /*
