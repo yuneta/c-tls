@@ -857,10 +857,6 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
                 NULL
             );
         }
-        if(priv->sskt) {
-            ytls_free_secure_filter(priv->ytls, priv->sskt);
-            priv->sskt = 0;
-        }
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
         }
@@ -1374,7 +1370,6 @@ PRIVATE int ac_send_encrypted_data(hgobj gobj, const char *event, json_t *kw, hg
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     GBUFFER *gbuf = (GBUFFER *)(size_t)kw_get_int(kw, "gbuffer", 0, 0);
 
-
     gbuf_incref(gbuf); // Quédate una copia
 
     if(priv->output_priority) {
@@ -1418,6 +1413,12 @@ PRIVATE int ac_enqueue_encrypted_data(hgobj gobj, const char *event, json_t *kw,
  ***************************************************************************/
 PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
+    }
     if(gobj_is_running(gobj)) {
         gobj_stop(gobj);
     }
