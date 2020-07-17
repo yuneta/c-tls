@@ -278,12 +278,6 @@ PRIVATE int mt_start(hgobj gobj)
  ***************************************************************************/
 PRIVATE int mt_stop(hgobj gobj)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(priv->sskt) {
-        ytls_free_secure_filter(priv->ytls, priv->sskt);
-        priv->sskt = 0;
-    }
     if(gobj_cmp_current_state(gobj, "ST_WAIT_HANDSHAKE")>=0) {
         do_shutdown(gobj);
         return 0;
@@ -387,6 +381,10 @@ PRIVATE void on_close_cb(uv_handle_t* handle)
     hgobj gobj = handle->data;
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
+    if(priv->sskt) {
+        ytls_free_secure_filter(priv->ytls, priv->sskt);
+        priv->sskt = 0;
+    }
 
     if(gobj_trace_level(gobj) & TRACE_UV) {
         trace_msg("<<< on_close_cb tcp1 p=%p", &priv->uv_socket);
@@ -1413,12 +1411,6 @@ PRIVATE int ac_enqueue_encrypted_data(hgobj gobj, const char *event, json_t *kw,
  ***************************************************************************/
 PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(priv->sskt) {
-        ytls_free_secure_filter(priv->ytls, priv->sskt);
-        priv->sskt = 0;
-    }
     if(gobj_is_running(gobj)) {
         gobj_stop(gobj);
     }
