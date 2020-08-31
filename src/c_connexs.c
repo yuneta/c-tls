@@ -117,7 +117,7 @@ PRIVATE void mt_create(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
+    priv->timer = gobj_create("", GCLASS_TIMER, 0, gobj);
 
     json_t *jn_crypto = gobj_read_json_attr(gobj, "crypto");
     priv->ytls = ytls_init(jn_crypto, FALSE);
