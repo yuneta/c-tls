@@ -49,6 +49,7 @@ SDATA (ASN_OCTET_STR,   "top_gclass_name",      SDF_RD,             0,          
 SDATA (ASN_POINTER,     "top_parent",           SDF_RD,             0,              "parent of the top filter gobj"),
 SDATA (ASN_JSON,        "top_kw",               SDF_RD,             0,              "kw of filter gobj"),
 SDATA (ASN_JSON,        "clisrv_kw",            SDF_RD,             0,              "kw of clisrv gobj"),
+SDATA (ASN_BOOLEAN,     "accept_all_certificates", SDF_RD|SDF_WR,   0,              "Accept all certificates"),
 
 SDATA (ASN_POINTER,     "user_data",            0,                  0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",           0,                  0,              "more user data"),
@@ -85,6 +86,7 @@ typedef struct _PRIVATE_DATA {
     hgobj top_parent;
     json_t * top_kw;
     json_t * clisrv_kw;
+    BOOL accept_all_certificates;
 
     uint32_t *pconnxs;
 
@@ -125,6 +127,7 @@ PRIVATE void mt_create(hgobj gobj)
     SET_PRIV(top_parent, gobj_read_pointer_attr)
     SET_PRIV(top_kw, gobj_read_json_attr)
     SET_PRIV(clisrv_kw, gobj_read_json_attr)
+    SET_PRIV(accept_all_certificates, gobj_read_bool_attr)
 
     priv->pconnxs = gobj_danger_attr_ptr(gobj, "connxs");
 
@@ -147,6 +150,7 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
     ELIF_EQ_SET_PRIV(top_parent, gobj_read_pointer_attr)
     ELIF_EQ_SET_PRIV(top_kw, gobj_read_json_attr)
     ELIF_EQ_SET_PRIV(clisrv_kw, gobj_read_json_attr)
+    ELIF_EQ_SET_PRIV(accept_all_certificates, gobj_read_bool_attr)
 
     ELIF_EQ_SET_PRIV(exitOnError, gobj_read_bool_attr)
     END_EQ_SET_PRIV()
@@ -576,11 +580,15 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
     /*----------------------------*
      *  Create the clisrv gobj.
      *----------------------------*/
-    json_t *kw_clisrv = priv->clisrv_kw;
-    JSON_INCREF(kw_clisrv);
+    json_t *kw_clisrv = json_deep_copy(priv->clisrv_kw);
     if(!kw_clisrv) {
         kw_clisrv = json_object();
     }
+    json_object_set_new(
+        kw_clisrv,
+        "accept_all_certificates",
+        json_boolean(priv->accept_all_certificates)
+    );
     json_object_set_new(kw_clisrv, "ytls", json_integer((json_int_t)(size_t)priv->ytls));
 
     hgobj clisrv = gobj_create_volatil(
