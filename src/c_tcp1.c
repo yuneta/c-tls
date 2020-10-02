@@ -73,7 +73,6 @@ SDATA (ASN_UNSIGNED,    "max_tx_queue",             SDF_WR,         0,          
 SDATA (ASN_COUNTER64,   "cur_tx_queue",             SDF_RD,         0,              "Current messages in tx queue"),
 SDATA (ASN_BOOLEAN,     "__clisrv__",               SDF_RD,         0,              "Client of tcp server"),
 SDATA (ASN_BOOLEAN,     "output_priority",          SDF_RD|SDF_WR,  0,              "Make output priority"),
-SDATA (ASN_BOOLEAN,     "accept_all_certificates",  SDF_RD,         0,              "Accept all certificates"),
 SDATA (ASN_POINTER,     "user_data",                0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",               0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",               0,              0,              "subscriber of output-events. Default if null is parent."),
@@ -1256,20 +1255,11 @@ PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
         );
     }
 
-    BOOL accept_all_certificates = gobj_read_bool_attr(gobj, "accept_all_certificates");
-    if(error < 0 && !accept_all_certificates) {
+    if(error < 0) {
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
         }
     } else {
-        if(error < 0) {
-            log_warning(0,
-                "gobj",         "%s", gobj_full_name(gobj),
-                "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                "msg",          "%s", "TLS handshake FAILS: Accepting all certificates",
-                NULL
-            );
-        }
         set_secure_connected(gobj);
     }
 
