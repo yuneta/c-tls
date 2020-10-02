@@ -71,8 +71,9 @@ SDATA (ASN_OCTET_STR,   "rx_data_event_name",       SDF_RD,         "EV_RX_DATA"
 SDATA (ASN_OCTET_STR,   "stopped_event_name",       SDF_RD,         "EV_STOPPED",   "Stopped event name"),
 SDATA (ASN_UNSIGNED,    "max_tx_queue",             SDF_WR,         0,              "Maximum messages in tx queue. Default is 0: no limit."),
 SDATA (ASN_COUNTER64,   "cur_tx_queue",             SDF_RD,         0,              "Current messages in tx queue"),
-SDATA (ASN_BOOLEAN,     "__clisrv__",                   SDF_RD,         0,              "Client of tcp server"),
+SDATA (ASN_BOOLEAN,     "__clisrv__",               SDF_RD,         0,              "Client of tcp server"),
 SDATA (ASN_BOOLEAN,     "output_priority",          SDF_RD|SDF_WR,  0,              "Make output priority"),
+SDATA (ASN_BOOLEAN,     "accept_all_certificates",  SDF_RD|SDF_WR,  0,              "Accept all certificates"),
 SDATA (ASN_POINTER,     "user_data",                0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",               0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",               0,              0,              "subscriber of output-events. Default if null is parent."),
@@ -487,7 +488,7 @@ PRIVATE void set_secure_connected(hgobj gobj)
         log_info(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "Connected",
+            "msg",          "%s", "s-Connected",
             "rHost",        "%s", priv->rHost,
             "rPort",        "%s", priv->rPort,
             "remote-addr",  "%s", priv->peername,
@@ -521,7 +522,7 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
         log_info(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "Disconnected",
+            "msg",          "%s", "s-Disconnected",
             "remote-addr",  "%s", priv->peername?priv->peername:"",
             "local-addr",   "%s", priv->sockname?priv->sockname:"",
             "cause",        "%s", cause?cause:"",
@@ -590,7 +591,7 @@ PRIVATE void on_connect_cb(uv_connect_t* req, int status)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "Connection Refused",
+                    "msg",          "%s", "s-Connection Refused",
                     "rHost",        "%s", priv->rHost,
                     "rPort",        "%s", priv->rPort,
                     "remote-addr",  "%s", priv->peername,
@@ -603,7 +604,7 @@ PRIVATE void on_connect_cb(uv_connect_t* req, int status)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "Connection Timeout",
+                    "msg",          "%s", "s-Connection Timeout",
                     "rHost",        "%s", priv->rHost,
                     "rPort",        "%s", priv->rPort,
                     "remote-addr",  "%s", priv->peername,
@@ -616,7 +617,7 @@ PRIVATE void on_connect_cb(uv_connect_t* req, int status)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "Host unreachable",
+                    "msg",          "%s", "s-Host unreachable",
                     "rHost",        "%s", priv->rHost,
                     "rPort",        "%s", priv->rPort,
                     "remote-addr",  "%s", priv->peername,
@@ -629,7 +630,7 @@ PRIVATE void on_connect_cb(uv_connect_t* req, int status)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "Canceled",
+                    "msg",          "%s", "s-Canceled",
                     "rHost",        "%s", priv->rHost,
                     "rPort",        "%s", priv->rPort,
                     "remote-addr",  "%s", priv->peername,
@@ -687,7 +688,7 @@ PRIVATE int do_connect(hgobj gobj)
         log_info(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "Connecting...",
+            "msg",          "%s", "s-Connecting...",
             "rHost",        "%s", priv->rHost,
             "rPort",        "%s", priv->rPort,
             "lHost",        "%s", priv->lHost,
@@ -827,7 +828,7 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "Connection Reset",
+                    "msg",          "%s", "s-Connection Reset",
                     NULL
                 );
             }
@@ -836,7 +837,7 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
                 log_info(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                    "msg",          "%s", "EOF",
+                    "msg",          "%s", "s-EOF",
                     NULL
                 );
             }
@@ -963,7 +964,7 @@ PRIVATE void do_shutdown(hgobj gobj)
         log_info(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "Disconnecting...",
+            "msg",          "%s", "s-Disconnecting...",
             "rHost",        "%s", priv->rHost,
             "rPort",        "%s", priv->rPort,
             NULL);
@@ -1255,7 +1256,8 @@ PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
         );
     }
 
-    if(error < 0) {
+    BOOL accept_all_certificates = gobj_read_bool_attr(gobj, "accept_all_certificates");
+    if(error < 0 && !accept_all_certificates) {
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
         }
