@@ -1262,6 +1262,14 @@ PRIVATE int on_handshake_done_cb(hgobj gobj, int error)
             gobj_stop(gobj); // auto-stop
         }
     } else {
+        if(error < 0) {
+            log_warning(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+                "msg",          "%s", "TLS handshake FAILS: Accepting all certificates",
+                NULL
+            );
+        }
         set_secure_connected(gobj);
     }
 
