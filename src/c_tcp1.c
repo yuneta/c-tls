@@ -443,7 +443,24 @@ PRIVATE void set_connected(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     gobj_change_state(gobj, "ST_WAIT_HANDSHAKE");
+
     get_peer_and_sock_name(gobj);
+
+    /*
+     *  Info of "connected"
+     */
+    if(gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+        log_info(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+            "msg",          "%s", "Connected",
+            "rHost",        "%s", priv->rHost,
+            "rPort",        "%s", priv->rPort,
+            "remote-addr",  "%s", priv->peername,
+            "local-addr",   "%s", priv->sockname,
+            NULL
+        );
+    }
 
     priv->sskt = ytls_new_secure_filter(
         priv->ytls,
@@ -487,7 +504,7 @@ PRIVATE void set_secure_connected(hgobj gobj)
         log_info(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "Connected",
+            "msg",          "%s", "Secure Connected",
             "rHost",        "%s", priv->rHost,
             "rPort",        "%s", priv->rPort,
             "remote-addr",  "%s", priv->peername,
