@@ -40,7 +40,7 @@ SDATA (ASN_OCTET_STR,   "url",                  SDF_RD,             0,          
 SDATA (ASN_OCTET_STR,   "lHost",                SDF_RD,             0,              "Listening ip, got from url"),
 SDATA (ASN_OCTET_STR,   "lPort",                SDF_RD,             0,              "Listening port, got from url"),
 SDATA (ASN_OCTET_STR,   "stopped_event_name",   SDF_RD,            "EV_STOPPED",   "Stopped event name"),
-SDATA (ASN_BOOLEAN,     "trace_tls",            SDF_WR,             0,              "Trace TLS"),
+SDATA (ASN_BOOLEAN,     "trace",                SDF_WR|SDF_PERSIST, 0,              "Trace TLS"),
 SDATA (ASN_BOOLEAN,     "shared",               SDF_RD,             0,              "Share the port"),
 SDATA (ASN_BOOLEAN,     "exitOnError",          SDF_RD,             1,              "Exit if Listen failed"),
 SDATA (ASN_JSON,        "child_tree_filter",    SDF_RD,             0,              "tree of chids to create on new accept"),
@@ -85,6 +85,7 @@ typedef struct _PRIVATE_DATA {
     hgobj top_parent;
     json_t * top_kw;
     json_t * clisrv_kw;
+    BOOL trace;
 
     uint32_t *pconnxs;
 
@@ -111,6 +112,8 @@ PRIVATE void mt_create(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     json_t *jn_crypto = gobj_read_json_attr(gobj, "crypto");
+    json_object_set_new(jn_crypto, "trace", json_boolean(priv->trace));
+
     priv->ytls = ytls_init(jn_crypto, TRUE);
 
     /*
@@ -119,6 +122,7 @@ PRIVATE void mt_create(hgobj gobj)
      */
     SET_PRIV(url, gobj_read_str_attr)
     SET_PRIV(exitOnError, gobj_read_bool_attr)
+    SET_PRIV(trace, gobj_read_bool_attr)
 
     SET_PRIV(top_name, gobj_read_str_attr)
     SET_PRIV(top_gclass_name, gobj_read_str_attr)
@@ -147,8 +151,8 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
     ELIF_EQ_SET_PRIV(top_parent, gobj_read_pointer_attr)
     ELIF_EQ_SET_PRIV(top_kw, gobj_read_json_attr)
     ELIF_EQ_SET_PRIV(clisrv_kw, gobj_read_json_attr)
-
     ELIF_EQ_SET_PRIV(exitOnError, gobj_read_bool_attr)
+    ELIF_EQ_SET_PRIV(trace, gobj_read_bool_attr)
     END_EQ_SET_PRIV()
 }
 
@@ -581,7 +585,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
         kw_clisrv = json_object();
     }
     json_object_set_new(kw_clisrv, "ytls", json_integer((json_int_t)(size_t)priv->ytls));
-    json_object_set_new(kw_clisrv, "trace_tls", json_boolean(gobj_read_bool_attr(gobj, "trace_tls")));
+    json_object_set_new(kw_clisrv, "trace", json_boolean(priv->trace));
 
     hgobj clisrv = gobj_create_volatil(
         xname, // the same name as the filter, if filter.
