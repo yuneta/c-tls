@@ -40,6 +40,7 @@ SDATA (ASN_OCTET_STR,   "url",                  SDF_RD,             0,          
 SDATA (ASN_OCTET_STR,   "lHost",                SDF_RD,             0,              "Listening ip, got from url"),
 SDATA (ASN_OCTET_STR,   "lPort",                SDF_RD,             0,              "Listening port, got from url"),
 SDATA (ASN_OCTET_STR,   "stopped_event_name",   SDF_RD,            "EV_STOPPED",   "Stopped event name"),
+SDATA (ASN_BOOLEAN,     "trace_tls",            SDF_WR,             0,              "Trace TLS"),
 SDATA (ASN_BOOLEAN,     "shared",               SDF_RD,             0,              "Share the port"),
 SDATA (ASN_BOOLEAN,     "exitOnError",          SDF_RD,             1,              "Exit if Listen failed"),
 SDATA (ASN_JSON,        "child_tree_filter",    SDF_RD,             0,              "tree of chids to create on new accept"),
@@ -580,6 +581,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
         kw_clisrv = json_object();
     }
     json_object_set_new(kw_clisrv, "ytls", json_integer((json_int_t)(size_t)priv->ytls));
+    json_object_set_new(kw_clisrv, "trace_tls", json_boolean(gobj_read_bool_attr(gobj, "trace_tls")));
 
     hgobj clisrv = gobj_create_volatil(
         xname, // the same name as the filter, if filter.

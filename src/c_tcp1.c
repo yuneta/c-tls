@@ -73,6 +73,7 @@ SDATA (ASN_UNSIGNED,    "max_tx_queue",             SDF_WR,         0,          
 SDATA (ASN_COUNTER64,   "cur_tx_queue",             SDF_RD,         0,              "Current messages in tx queue"),
 SDATA (ASN_BOOLEAN,     "__clisrv__",               SDF_RD,         0,              "Client of tcp server"),
 SDATA (ASN_BOOLEAN,     "output_priority",          SDF_RD|SDF_WR,  0,              "Make output priority"),
+SDATA (ASN_BOOLEAN,     "trace_tls",                SDF_WR,         0,              "Trace TLS"),
 SDATA (ASN_POINTER,     "user_data",                0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",               0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",               0,              0,              "subscriber of output-events. Default if null is parent."),
@@ -474,6 +475,18 @@ PRIVATE void set_connected(hgobj gobj)
             gobj_stop(gobj); // auto-stop
         }
         return;
+    }
+
+    if(gobj_read_bool_attr(gobj, "trace_tls")) {
+        if(gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+            log_info(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "msgset",       "%s", MSGSET_INFO,
+                "msg",          "%s", "trace_tls set on",
+                NULL
+            );
+        }
+        ytls_set_trace(priv->ytls, priv->sskt, TRUE);
     }
 
     if(gobj_trace_level(gobj) & TRACE_UV) {
