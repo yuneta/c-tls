@@ -1528,7 +1528,7 @@ PRIVATE LMETHOD lmt[] = {
  *---------------------------------------------*/
 PRIVATE GCLASS _gclass = {
     0,  // base
-    GCLASS_TCP1_NAME,      // CHANGE WITH each gclass
+    GCLASS_TCP1_NAME,
     &fsm,
     {
         mt_create,
