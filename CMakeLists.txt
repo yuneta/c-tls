@@ -43,6 +43,8 @@ include_directories(BEFORE /yuneta/development/output/include)
 set (SRCS
     src/yuneta_tls_register.c
 
+    src/c_authz.c
+
     # Protocols
     src/c_connexs.c
 
@@ -56,6 +58,8 @@ set (HDRS
     src/yuneta_tls.h
     src/yuneta_tls_version.h
     src/yuneta_tls_register.h
+
+    src/c_authz.h
 
     # Protocols
     src/c_connexs.h
