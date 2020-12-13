@@ -62,6 +62,7 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag----------------default---------description---------- */
+SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
 SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_RD,             0,          "JWT public key"),
 
 SDATA (ASN_COUNTER64,   "txMsgs",           SDF_RD|SDF_PSTATS,  0,          "Messages transmitted"),
@@ -117,6 +118,7 @@ typedef struct _PRIVATE_DATA {
 
     oauth2_log_t *oath2_log;
     oauth2_log_sink_t *oath2_sink;
+    oauth2_cfg_token_verify_t *verify;
 
     hgobj gobj_tranger;
     hgobj treedb_authz;
@@ -156,14 +158,37 @@ PRIVATE void mt_create(hgobj gobj)
     if(!jn_treedb_schema_authzs) {
         exit(-1);
     }
+    json_decref(jn_treedb_schema_authzs);
 
-    int level = OAUTH2_LOG_WARN;
-    priv->oath2_sink = oauth2_log_sink_create(
-        level,                  // oauth2_log_level_t level,
-        oauth2_log_callback,    // oauth2_log_function_t callback,
-        gobj                    // void *ctx
-    );
-    priv->oath2_log = oauth2_log_init(level, priv->oath2_sink);
+    if(1) {
+        /*---------------------------*
+         *      Oauth
+         *---------------------------*/
+        #define MY_CACHE_OPTIONS "options=max_entries%3D10"
+        int level = OAUTH2_LOG_WARN;
+        priv->oath2_sink = oauth2_log_sink_create(
+            level,                  // oauth2_log_level_t level,
+            oauth2_log_callback,    // oauth2_log_function_t callback,
+            gobj                    // void *ctx
+        );
+        priv->oath2_log = oauth2_log_init(level, priv->oath2_sink);
+
+        const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
+        if(pubkey) {
+            const char *rv = oauth2_cfg_token_verify_add_options(
+                priv->oath2_log, &priv->verify, "pubkey", pubkey,
+                "verify.exp=skip&verify.cache." MY_CACHE_OPTIONS);
+            if(rv != NULL) {
+                log_error(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "function",     "%s", __FUNCTION__,
+                    "msgset",       "%s", MSGSET_OAUTH_ERROR,
+                    "msg",          "%s", "oauth2_cfg_token_verify_add_options() FAILED",
+                    NULL
+                );
+            }
+        }
+    }
 
     priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
     priv->ptxMsgs = gobj_danger_attr_ptr(gobj, "txMsgs");
@@ -174,10 +199,14 @@ PRIVATE void mt_create(hgobj gobj)
      *---------------------------*/
     char path[PATH_MAX];
     snprintf(path, sizeof(path),
-        "/yuneta/store/realms/%s/%s/authzs",
+        "/yuneta/store/authzs/%s/%s/",
         gobj_yuno_realm_name(),
         gobj_yuno_role_plus_name()
     );
+/*
+        "realm_domain": "mulesol",
+        "realm_name": "utils",
+*/
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
         "filename_mask", "%Y",
@@ -185,7 +214,7 @@ PRIVATE void mt_create(hgobj gobj)
         "on_critical_error", (int)(LOG_OPT_EXIT_ZERO)
     );
     priv->gobj_tranger = gobj_create_service(
-        "tranger",
+        "tranger_authz",
         GCLASS_TRANGER,
         kw_tranger,
         gobj
@@ -244,6 +273,13 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
  ***************************************************************************/
 PRIVATE void mt_destroy(hgobj gobj)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    if(priv->verify) {
+        oauth2_cfg_token_verify_free(priv->oath2_log, priv->verify);
+        priv->verify = 0;
+    }
+    EXEC_AND_RESET(oauth2_log_free, priv->oath2_log);
 }
 
 /***************************************************************************
@@ -384,6 +420,7 @@ PRIVATE const EVENT input_events[] = {
     {"EV_SAMPLE",       0,  0,  "Description of resource"},
     // bottom input
     {"EV_TIMEOUT",      0,  0,  ""},
+    {"EV_STOPPED",      0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
 };
@@ -400,6 +437,7 @@ PRIVATE const char *state_names[] = {
 PRIVATE EV_ACTION ST_IDLE[] = {
     {"EV_SAMPLE",               ac_sample,              0},
     {"EV_TIMEOUT",              ac_timeout,             0},
+    {"EV_STOPPED",              0,                      0},
     {0,0,0}
 };
 
