@@ -552,3 +552,30 @@ PUBLIC GCLASS *gclass_authz(void)
 {
     return &_gclass;
 }
+
+/***************************************************************************
+   Check user authz
+ ***************************************************************************/
+PUBLIC BOOL authz_checker(hgobj gobj, const char *level, json_t *kw, hgobj src)
+{
+    // TODO
+    return TRUE;
+}
+
+/***************************************************************************
+   Set user authz allow
+ ***************************************************************************/
+PUBLIC int authz_allow(hgobj gobj, const char *user, const char *level, json_t *kw)
+{
+    // TODO
+    return 0;
+}
+
+/***************************************************************************
+   Set user authz deny
+ ***************************************************************************/
+PUBLIC int authz_deny(hgobj gobj, const char *user, const char *level, json_t *kw)
+{
+    // TODO
+    return 0;
+}
