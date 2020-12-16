@@ -203,10 +203,6 @@ PRIVATE void mt_create(hgobj gobj)
         gobj_yuno_realm_name(),
         gobj_yuno_role_plus_name()
     );
-/*
-        "realm_domain": "mulesol",
-        "realm_name": "utils",
-*/
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
         "filename_mask", "%Y",
