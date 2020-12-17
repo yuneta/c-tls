@@ -98,8 +98,8 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
  *      GClass authz levels
  *---------------------------------------------*/
 PRIVATE sdata_desc_t pm_authz_sample[] = {
-/*-PM----type-----------name------------flag------------default-----description---------- */
-SDATAPM (ASN_OCTET_STR, "param",        0,              0,          "Param ..."),
+/*-PM-----type--------------name----------------flag------------description---------- */
+SDATAPM0 (ASN_OCTET_STR,    "param sample",     0,              "Param ..."),
 SDATA_END()
 };
 
