@@ -22,8 +22,6 @@ PUBLIC int yuneta_register_c_tls(void)
         return -1;
     }
 
-    gobj_register_gclass(GCLASS_AUTHZ);
-
     gobj_register_gclass(GCLASS_CONNEXS);
 
     /*
