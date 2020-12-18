@@ -197,7 +197,7 @@ PRIVATE void mt_create(hgobj gobj)
         }
     }
 
-    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
+    //priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
     priv->ptxMsgs = gobj_danger_attr_ptr(gobj, "txMsgs");
     priv->prxMsgs = gobj_danger_attr_ptr(gobj, "rxMsgs");
 
@@ -290,10 +290,10 @@ PRIVATE void mt_destroy(hgobj gobj)
  ***************************************************************************/
 PRIVATE int mt_start(hgobj gobj)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    //PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    gobj_start(priv->timer);
-    set_timeout_periodic(priv->timer, priv->timeout);
+    //gobj_start(priv->timer);
+    //set_timeout_periodic(priv->timer, priv->timeout);
     return 0;
 }
 
@@ -304,8 +304,8 @@ PRIVATE int mt_stop(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    clear_timeout(priv->timer);
-    gobj_stop(priv->timer);
+    //clear_timeout(priv->timer);
+    //gobj_stop(priv->timer);
     return 0;
 }
 
