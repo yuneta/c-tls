@@ -16,6 +16,8 @@ extern "C"{
 #include "yuneta_tls_version.h"
 #include "yuneta_tls_register.h"
 
+#include "c_authz.h"
+
 // Protocols
 #include "c_connexs.h"
 #include "c_tcp1.h"
