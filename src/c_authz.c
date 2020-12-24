@@ -482,6 +482,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         kw_get_dict(user, "_sessions", json_object(), KW_CREATE);
     }
 
+/* TODO consigue y devuelve los roles del user? para darselos al frontend?
+    json_t *access_roles = get_access_roles(
+        gobj,
+        kw_get_list(jwt_payload, "resource_access`fichador`roles", 0, KW_REQUIRED)
+    );
+    json_object_set_new(jwt_payload, "access_roles", access_roles);
+    */
+
     /*
      *  Autorizado, informa
      */
@@ -624,6 +632,28 @@ PRIVATE json_t *identify_system_user(
         );
     }
     return 0; // username as user or group not found
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *get_access_roles(
+    hgobj gobj,
+    json_t *token_roles  // not owned
+)
+{
+    json_t *access_roles = json_object();
+
+    int i; json_t *jn_value;
+    json_array_foreach(token_roles, i, jn_value) {
+        int list_size;
+        const char *str = json_string_value(jn_value);
+        const char **s = split2(str, ":_- ", &list_size);
+        json_t *resource = kw_get_list(access_roles, s[0], json_array(), KW_CREATE);
+        json_array_append_new(resource, json_string(s[1]));
+        split_free2(s);
+    }
+    return access_roles;
 }
 
 /***************************************************************************
@@ -855,7 +885,8 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
 
 /***************************************************************************
    Authenticate user
-   gobj_service has not authenticate parser, use the global
+   If we are here is because gobj_service has not authenticate parser,
+   then use this global parser
  ***************************************************************************/
 PUBLIC json_t *authenticate_parser(hgobj gobj_service, json_t *kw, hgobj src)
 {
@@ -877,186 +908,7 @@ PUBLIC json_t *authenticate_parser(hgobj gobj_service, json_t *kw, hgobj src)
 
 
 #ifdef PEPE
-    oauth2_log_t *oath2_log;
-    oauth2_log_sink_t *oath2_sink;
 
-    json_t *users_accesses;      // dict with users opened
-
-    if(1) {
-PRIVATE topic_desc_t db_fichador_desc[] = {
-    // Topic Name,          Pkey            System Flag     Tkey        Topic Json Desc
-    {"users_accesses",      "username",     sf_string_key,  "tm",       0},
-    {0}
-};
-
-        /*---------------------------*
-         *  Open topics as messages
-         *  TODO crea gclass para trmsg
-         *---------------------------*/
-        trmsg_open_topics(
-            priv->tranger,
-            db_fichador_desc
-        );
-
-        /*
-         *  To open users accesses
-         */
-        priv->users_accesses = trmsg_open_list(
-            priv->tranger,
-            "users_accesses",     // topic
-            json_pack("{s:i}",  // filter
-                "max_key_instances", 1
-            )
-        );
-        {
-            // FIX ERROR
-            // WARNING ignora _sessions al cargar user_access,
-            // se pueden haber salvado sesiones que son datos volatiles
-            json_t *messages = trmsg_get_messages(priv->users_accesses);
-            const char *k; json_t *msg;
-            json_object_foreach(messages, k, msg) {
-                json_t *active = kw_get_dict(msg, "active", 0, KW_REQUIRED);
-                if(active) {
-                    json_object_del(active, "_sessions");
-                }
-            }
-        }
-    }
-
-
-/***************************************************************************
- *      Framework Method mt_authenticate
- ***************************************************************************/
-PRIVATE json_t *mt_authenticate(hgobj gobj, const char *service, json_t *kw, hgobj src)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    const char *jwt= kw_get_str(kw, "jwt", "", KW_REQUIRED);
-    const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
-
-    #define MY_CACHE_OPTIONS "options=max_entries%3D10"
-
-    json_t *jwt_payload = NULL;
-    oauth2_cfg_token_verify_t *verify = NULL;
-
-    const char *rv = oauth2_cfg_token_verify_add_options(
-        priv->oath2_log, &verify, "pubkey", pubkey,
-        "verify.exp=skip&verify.cache." MY_CACHE_OPTIONS);
-    if(rv != NULL) {
-        return msg_iev_build_webix(
-            gobj,
-            -1,
-            json_local_sprintf("Oauth failed"),
-            0,
-            0,
-            kw  // owned
-        );
-    }
-
-    if(!oauth2_token_verify(priv->oath2_log, verify, jwt, &jwt_payload)) {
-        // TODO por aquí se pierde memoria
-        JSON_DECREF(jwt_payload);
-        oauth2_cfg_token_verify_free(priv->oath2_log, verify);
-        return msg_iev_build_webix(
-            gobj,
-            -1,
-            json_local_sprintf("Authentication rejected"),
-            0,
-            0,
-            kw  // owned
-        );
-    }
-    oauth2_cfg_token_verify_free(priv->oath2_log, verify);
-
-    // HACK guarda jwt_payload (user y session) en channel_gobj
-    gobj_write_user_data(src, "jwt_payload", jwt_payload);
-
-    json_t *access_roles = get_access_roles(
-        gobj,
-        kw_get_list(jwt_payload, "resource_access`fichador`roles", 0, KW_REQUIRED)
-    );
-    json_object_set_new(jwt_payload, "access_roles", access_roles);
-    //log_debug_json(0, jwt_payload, "jwt_payload");
-
-    /*
-     *  User autentificado, crea su registro si es nuevo
-     *  e informa de su estado en el ack.
-     */
-    const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED); // User id
-    json_t *user = trmsg_get_active_message(priv->users_accesses, username);
-    if(!user) {
-        create_new_user(gobj, jwt_payload);
-        user = trmsg_get_active_message(priv->users_accesses, username);
-    }
-    kw_get_dict(user, "_sessions", json_object(), KW_CREATE);
-    /*
-     *  Autorizado, informa
-     */
-    json_t *webix = msg_iev_build_webix(
-        gobj,
-        0,
-        0,
-        0,
-        0,
-        kw  // owned
-    );
-
-    return webix;
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE json_t *get_access_roles(
-    hgobj gobj,
-    json_t *token_roles  // not owned
-)
-{
-    json_t *access_roles = json_object();
-
-    int i; json_t *jn_value;
-    json_array_foreach(token_roles, i, jn_value) {
-        int list_size;
-        const char *str = json_string_value(jn_value);
-        const char **s = split2(str, ":_- ", &list_size);
-        json_t *resource = kw_get_list(access_roles, s[0], json_array(), KW_CREATE);
-        json_array_append_new(resource, json_string(s[1]));
-        split_free2(s);
-    }
-    return access_roles;
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE int create_new_user(hgobj gobj, json_t *jwt_payload)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED); // User id
-
-    /*
-     *  Crea user en users_accesses
-     */
-    json_t *user = json_pack("{s:s, s:s, s:I, s:O}",
-        "ev", "new_user",
-        "username", username,
-        "tm", (json_int_t)time_in_seconds(),
-        "jwt_payload", jwt_payload
-    );
-
-    trmsg_add_instance(
-        priv->tranger,
-        "users_accesses",
-        user, // owned
-        0,
-        0
-    );
-
-    user = trmsg_get_active_message(priv->users_accesses, username);
-
-    return 0;
-}
 
 /***************************************************************************
  *  Identity_card on from
@@ -1246,44 +1098,6 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 
     KW_DECREF(kw);
     return 0;
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE void oauth2_log_callback(
-    oauth2_log_sink_t *sink,
-    const char *filename,
-    unsigned long line,
-    const char *function,
-    oauth2_log_level_t level,
-    const char *msg
-)
-{
-    hgobj gobj = oauth2_log_sink_ctx_get(sink);
-
-    void (*log_fn)(log_opt_t opt, ...) = 0;
-    const char *msgset = MSGSET_OAUTH_ERROR;
-
-    if(level == OAUTH2_LOG_ERROR) {
-        log_fn = log_error;
-    } else if(level == OAUTH2_LOG_WARN) {
-        log_fn = log_warning;
-    } else if(level == OAUTH2_LOG_NOTICE || level == OAUTH2_LOG_INFO) {
-        log_fn = log_warning;
-        msgset = MSGSET_INFO;
-    } else if(level >= OAUTH2_LOG_DEBUG) {
-        log_fn = log_debug;
-        msgset = MSGSET_INFO;
-    }
-
-    log_fn(0,
-        "gobj",             "%s", gobj_full_name(gobj),
-        "function",         "%s", function,
-        "msgset",           "%s", msgset,
-        "msg",              "%s", msg,
-        NULL
-    );
 }
 
 
