@@ -33,7 +33,7 @@
             │                           │   │       │
             │               role_id [↖] │ ──┘n      │
             │                           │           │
-            │ system_user               │           │
+            │ properties                │           │
             └───────────────────────────┘           │
                                                     │
                                                     │
@@ -42,7 +42,10 @@
             │                           │           │
             │               role_id [↖] │ ──────────┘ n
             │                           │
-            │ context                   │
+            │ realm_domain              │
+            │ yuno_role                 │
+            │ yuno_name                 │
+            │ service                   │
             │ allow                     │
             │ deny                      │
             │ constraints               │

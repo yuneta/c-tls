@@ -733,6 +733,7 @@ PRIVATE json_t *get_user_roles(
     json_t *kw // not owned
 )
 {
+    const char *realm_domain = gobj_yuno_realm_domain();
     const char *iev_dst_yuno = kw_get_str(kw, "dst_yuno", "", 0);
     const char *iev_dst_role = kw_get_str(kw, "dst_role", "", 0);
     const char *iev_dst_service = kw_get_str(kw, "dst_service", "", 0);
