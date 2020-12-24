@@ -538,6 +538,11 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     );
     json_object_set_new(sessions, session_id, session);
 
+    /*------------------------------------*
+     *  Subscribe to know close session
+     *------------------------------------*/
+    gobj_subscribe_event(src, "EV_ON_CLOSE", 0, gobj);
+
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
@@ -747,10 +752,67 @@ PRIVATE int create_new_user(hgobj gobj, json_t *jwt_payload)
 
 
 /***************************************************************************
- *
+ *  Identity_card off from
+ *      Web clients (__top_side__)
  ***************************************************************************/
-PRIVATE int ac_sample(hgobj gobj, const char *event, json_t *kw, hgobj src)
+PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    /*------------------------------*
+    *      Get jwt info
+    *------------------------------*/
+    json_t *jwt_payload = gobj_read_json_attr(src, "jwt_payload");
+    if(!jwt_payload) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "What fuck! open without jwt_payload",
+            NULL
+        );
+        KW_DECREF(kw);
+        return 0;
+    }
+
+    /*--------------------------------------------*
+     *  Add logout user
+     *--------------------------------------------*/
+    if(priv->tranger) { // Si han pasado a pause es 0
+        const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
+        const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
+        json_t *user_ = trmsg_get_active_message(priv->users_accesses, username);
+        if(!user_) {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+                "msg",          "%s", "What fuck! user not found",
+                "username",          "%s", username,
+                NULL
+            );
+        }
+        json_t *user = json_deep_copy(user_);
+        json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+        json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
+        JSON_DECREF(session);
+
+        json_object_set_new(user, "ev", json_string("logout"));
+        json_object_set_new(user, "tm", json_integer(time_in_seconds()));
+
+        /*
+         *  Save logout record
+         */
+        trmsg_add_instance(
+            priv->tranger,
+            "users_accesses",
+            user, // owned
+            0,
+            0
+        );
+    }
+
+    gobj_unsubscribe_event(src, "EV_ON_CLOSE", 0, gobj);
 
     KW_DECREF(kw);
     return 0;
@@ -766,22 +828,19 @@ PRIVATE int ac_timeout(hgobj gobj, const char *event, json_t *kw, hgobj src)
     return 0;
 }
 
-
 /***************************************************************************
  *                          FSM
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = {
     // top input
-    {"EV_SAMPLE",       0,  0,  "Description of resource"},
     // bottom input
+    {"EV_ON_CLOSE",     0,  0,  ""},
     {"EV_TIMEOUT",      0,  0,  ""},
     {"EV_STOPPED",      0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
 };
 PRIVATE const EVENT output_events[] = {
-    {"EV_ON_SAMPLE1",       0,  0,  "Sample1"},
-    {"EV_ON_SAMPLE2",       0,  0,  "Sample2"},
     {NULL, 0, 0, ""}
 };
 PRIVATE const char *state_names[] = {
@@ -790,7 +849,7 @@ PRIVATE const char *state_names[] = {
 };
 
 PRIVATE EV_ACTION ST_IDLE[] = {
-    {"EV_SAMPLE",               ac_sample,              0},
+    {"EV_ON_CLOSE",             ac_on_close,            0},
     {"EV_TIMEOUT",              ac_timeout,             0},
     {"EV_STOPPED",              0,                      0},
     {0,0,0}
@@ -953,200 +1012,3 @@ PUBLIC json_t *authenticate_parser(hgobj gobj_service, json_t *kw, hgobj src)
 
     return gobj_authenticate(gobj, kw, src);
 }
-
-
-#ifdef PEPE
-
-
-/***************************************************************************
- *  Identity_card on from
- *      Web clients (__top_side__)
- ***************************************************************************/
-PRIVATE int ac_on_open(hgobj gobj, const char *event, json_t *kw, hgobj src)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(src != priv->gobj_top_side) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "on_open NOT from GOBJ_TOP_SIDE",
-            "src",          "%s", gobj_full_name(src),
-            NULL
-        );
-    }
-    hgobj channel_gobj = (hgobj)(size_t)kw_get_int(kw, "__temp__`channel_gobj", 0, KW_REQUIRED);
-
-    /*------------------------------*
-     *      Get jwt info
-     *------------------------------*/
-    json_t *jwt_payload = gobj_read_user_data(channel_gobj, "jwt_payload");
-    if(!jwt_payload) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "What fuck! open without jwt_payload",
-            NULL
-        );
-        KW_DECREF(kw);
-        return 0;
-    }
-
-    /*--------------------------------------------*
-     *  Add login user
-     *  El campo "username" del jwt es el id del user.
-     *--------------------------------------------*/
-    const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
-    json_t *user_ = trmsg_get_active_message(priv->users_accesses, username);
-    if(!user_) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "What fuck! user not found",
-            "username",          "%s", username,
-            NULL
-        );
-    }
-    json_t *user = json_deep_copy(user_);
-    json_object_set_new(user, "ev", json_string("login"));
-    json_object_set(user, "jwt_payload", jwt_payload);
-    json_object_set_new(user, "tm", json_integer(time_in_seconds()));
-
-    /*
-     *  Save login record and recover
-     *  (Before sessions)
-     */
-    trmsg_add_instance(
-        priv->tranger,
-        "users_accesses",
-        user, // owned
-        0,
-        0
-    );
-    user = trmsg_get_active_message(priv->users_accesses, username);
-
-    /*--------------------------------------------*
-     *  Get sessions
-     *  By now ONLY one session
-     *--------------------------------------------*/
-    json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
-    json_t *session;
-    void *n; const char *k;
-    json_object_foreach_safe(sessions, n, k, session) {
-        /*-------------------------------*
-         *  Only one connection allowed
-         *-------------------------------*/
-        hgobj prev_channel_gobj = (hgobj)(size_t)kw_get_int(session, "channel_gobj", 0, KW_REQUIRED);
-        log_info(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INFO,
-            "msg",          "%s", "User already connected",
-            "user",         "%s", username,
-            NULL
-        );
-        gobj_send_event(prev_channel_gobj, "EV_DROP", 0, gobj);
-        json_object_del(sessions, k);
-    }
-
-    /*------------------------*
-     *      Save session
-     *------------------------*/
-    const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
-    session = json_pack("{s:I}",
-        "channel_gobj", (json_int_t)channel_gobj
-    );
-    if(!session) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "What fuck! json_pack() FAILED",
-            NULL
-        );
-    }
-    json_object_set_new(sessions, session_id, session);
-
-    KW_DECREF(kw);
-    return 0;
-}
-
-/***************************************************************************
- *  Identity_card off from
- *      Web clients (__top_side__)
- ***************************************************************************/
-PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    if(src == priv->gobj_top_side) {
-        hgobj channel_gobj = (hgobj)(size_t)kw_get_int(kw, "__temp__`channel_gobj", 0, KW_REQUIRED);
-
-        /*------------------------------*
-        *      Get jwt info
-        *------------------------------*/
-        json_t *jwt_payload = gobj_read_user_data(channel_gobj, "jwt_payload");
-        if(!jwt_payload) {
-            log_error(0,
-                "gobj",         "%s", gobj_full_name(gobj),
-                "function",     "%s", __FUNCTION__,
-                "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-                "msg",          "%s", "What fuck! open without jwt_payload",
-                NULL
-            );
-            KW_DECREF(kw);
-            return 0;
-        }
-
-        /*
-         *  HACK !important, clean current data
-         */
-        gobj_write_user_data(src, "jwt_payload", json_null());
-
-        /*--------------------------------------------*
-         *  Add logout user
-         *--------------------------------------------*/
-        if(priv->tranger) { // Si han pasado a pause es 0
-            const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
-            const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
-            json_t *user_ = trmsg_get_active_message(priv->users_accesses, username);
-            if(!user_) {
-                log_error(0,
-                    "gobj",         "%s", gobj_full_name(gobj),
-                    "function",     "%s", __FUNCTION__,
-                    "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-                    "msg",          "%s", "What fuck! user not found",
-                    "username",          "%s", username,
-                    NULL
-                );
-            }
-            json_t *user = json_deep_copy(user_);
-            json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
-            json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
-            JSON_DECREF(session);
-
-            json_object_set_new(user, "ev", json_string("logout"));
-            json_object_set_new(user, "tm", json_integer(time_in_seconds()));
-
-            /*
-            *  Save logout record
-            */
-            trmsg_add_instance(
-                priv->tranger,
-                "users_accesses",
-                user, // owned
-                0,
-                0
-            );
-        }
-    }
-
-    KW_DECREF(kw);
-    return 0;
-}
-
-
-#endif
