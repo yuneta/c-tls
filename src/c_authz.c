@@ -47,6 +47,10 @@ PRIVATE json_t *identify_system_user(
     BOOL include_groups,
     BOOL verbose
 );
+PRIVATE json_t *get_user_roles(
+    hgobj gobj,
+    const char *username
+);
 
 /***************************************************************************
  *              Resources
@@ -480,17 +484,6 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     gobj_write_str_attr(src, "__username__", username);
 
     /*------------------------------*
-     *      Get user roles
-     *------------------------------*/
-/* TODO consigue y devuelve los roles del user? para darselos al frontend?
-    json_t *access_roles = get_access_roles(
-        gobj,
-        kw_get_list(jwt_payload, "resource_access`fichador`roles", 0, KW_REQUIRED)
-    );
-    json_object_set_new(jwt_payload, "access_roles", access_roles);
-    */
-
-    /*------------------------------*
      *      Save user access
      *------------------------------*/
     json_t *user = trmsg_get_active_message(priv->users_accesses, username);
@@ -543,15 +536,21 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *------------------------------------*/
     gobj_subscribe_event(src, "EV_ON_CLOSE", 0, gobj);
 
+    /*------------------------------*
+     *      Get user roles
+     *------------------------------*/
+    json_t *access_roles = get_user_roles(gobj, username);
+
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
     JSON_DECREF(jwt_payload);
     KW_DECREF(kw);
-    return json_pack("{s:i, s:s, s:s}",
+    return json_pack("{s:i, s:s, s:s, s:o}",
         "result", 0,
         "comment", "JWT User authenticated",
-        "username", username
+        "username", username,
+        "access_roles", access_roles
     );
 }
 
@@ -689,23 +688,27 @@ PRIVATE json_t *identify_system_user(
 
 /***************************************************************************
  *
+    Hay que responder al frontend:
+
+        "access_roles": {
+            "fichajes": [
+                "user"
+            ]
+        }
+
  ***************************************************************************/
-PRIVATE json_t *get_access_roles(
+PRIVATE json_t *get_user_roles(
     hgobj gobj,
-    json_t *token_roles  // not owned
+    const char *username
 )
 {
+    const char *service_name = "fichajes";
+
     json_t *access_roles = json_object();
 
-    int i; json_t *jn_value;
-    json_array_foreach(token_roles, i, jn_value) {
-        int list_size;
-        const char *str = json_string_value(jn_value);
-        const char **s = split2(str, ":_- ", &list_size);
-        json_t *resource = kw_get_list(access_roles, s[0], json_array(), KW_CREATE);
-        json_array_append_new(resource, json_string(s[1]));
-        split_free2(s);
-    }
+    json_t *service_roles = kw_get_list(access_roles, service_name, json_array(), KW_CREATE);
+    json_array_append_new(service_roles, json_string("owner"));
+
     return access_roles;
 }
 
