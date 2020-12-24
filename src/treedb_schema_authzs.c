@@ -33,6 +33,7 @@
             │                           │   │       │
             │               role_id [↖] │ ──┘n      │
             │                           │           │
+            │ system_user               │           │
             └───────────────────────────┘           │
                                                     │
                                                     │
@@ -41,6 +42,10 @@
             │                           │           │
             │               role_id [↖] │ ──────────┘ n
             │                           │
+            │ context                   │
+            │ allow                     │
+            │ deny                      │
+            │ constraints               │
             └───────────────────────────┘
 
 
@@ -147,13 +152,12 @@ static char treedb_schema_authzs[]= "\
                         'fkey'                                      \n\
                     ]                                               \n\
                 },                                                  \n\
-                'system_user': {                                    \n\
-                    'header': 'System User',                        \n\
-                    'fillspace': 7,                                 \n\
-                    'type': 'boolean',                              \n\
+                'properties': {                                     \n\
+                    'header': 'Properties',                         \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'blob',                                 \n\
                     'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
+                        'persistent'                                \n\
                     ]                                               \n\
                 }                                                   \n\
             }                                                       \n\
@@ -182,8 +186,35 @@ static char treedb_schema_authzs[]= "\
                         'fkey'                                      \n\
                     ]                                               \n\
                 },                                                  \n\
-                'context': {                                        \n\
-                    'header': 'Context',                            \n\
+                'realm_domain': {                                   \n\
+                    'header': 'Realm Domain',                       \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'yuno_role': {                                      \n\
+                    'header': 'Yuno Role',                          \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'yuno_name': {                                      \n\
+                    'header': 'Yuno Name',                          \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'service': {                                        \n\
+                    'header': 'Service',                            \n\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\

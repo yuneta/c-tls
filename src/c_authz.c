@@ -39,7 +39,7 @@ PRIVATE void oauth2_log_callback(
     oauth2_log_level_t level,
     const char *msg
 );
-PRIVATE int create_new_user(hgobj gobj, json_t *jwt_payload);
+PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payload);
 
 PRIVATE json_t *identify_system_user(
     hgobj gobj,
@@ -47,9 +47,11 @@ PRIVATE json_t *identify_system_user(
     BOOL include_groups,
     BOOL verbose
 );
+
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
-    const char *username
+    const char *username,
+    json_t *kw  // not owned
 );
 
 /***************************************************************************
@@ -243,6 +245,7 @@ PRIVATE void mt_create(hgobj gobj)
         kw_tranger,
         gobj
     );
+    priv->tranger = gobj_read_pointer_attr(priv->gobj_tranger, "tranger");
 
     /*----------------------*
      *  Create Treedb
@@ -406,6 +409,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     const char *peername = gobj_read_str_attr(src, "peername");
     const char *jwt= kw_get_str(kw, "jwt", "", 0);
+    const char *username = "";
 
     if(empty_string(jwt)) {
         /*-------------------------------*
@@ -422,16 +426,30 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
             );
         }
         struct passwd *pw = getpwuid(getuid());
+        username = pw->pw_name;
+
+        json_t *user = identify_system_user(gobj, username, TRUE, FALSE);
+        if(!user) {
+            KW_DECREF(kw);
+            return json_pack("{s:i, s:s, s:s}",
+                "result", -1,
+                "comment", "System user not found",
+                "username", username
+            );
+        }
+
+        json_t *access_roles = get_user_roles(gobj, username, kw);
 
         if(is_ip_allowed(peername)) {
             /*
              *  IP autorizada sin user/passw, usa logged user
              */
             KW_DECREF(kw);
-            return json_pack("{s:i, s:s, s:s}",
+            return json_pack("{s:i, s:s, s:s, s:o}",
                 "result", 0,
                 "comment", "Ip allowed",
-                "username", pw->pw_name
+                "username", username,
+                "access_roles", access_roles
             );
         }
 
@@ -441,12 +459,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
              *  LOCALHOST Autorizado, informa
              */
             KW_DECREF(kw);
-            return json_pack("{s:i, s:s, s:s}",
+            return json_pack("{s:i, s:s, s:s, s:o}",
                 "result", 0,
                 "comment", "Ip local allowed",
-                "username", pw->pw_name
+                "username", username,
+                "access_roles", access_roles
             );
         }
+        json_decref(access_roles);
 
         /*
          *  Reject, Need auth
@@ -454,7 +474,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
             "result", -1,
-            "comment", "jwt is needed to authenticate"
+            "comment", "JWT is needed to authenticate"
         );
     }
 
@@ -467,15 +487,25 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
             "result", -1,
-            "comment", "Authentication rejected"
+            "comment", "JWT validation failure"
         );
     }
 
-    /*
-     *  Get username
-     *  WARNING "preferred_username" is used in keycloak! In others Oauth???
-     */
-    const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
+    /*-------------------------------------------------*
+     *  Get username and validate against our system
+     *-------------------------------------------------*/
+    // WARNING "preferred_username" is used in keycloak! In others Oauth???
+    username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
+    json_t *user = gobj_get_node(priv->gobj_treedb, "users", username, 0, gobj);
+    if(!user) {
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return json_pack("{s:i, s:s, s:s}",
+            "result", -1,
+            "comment", "User not found",
+            "username", username
+        );
+    }
 
     /*------------------------------------------------*
      *  HACK guarda jwt_payload en src (IEvent_srv)
@@ -486,12 +516,12 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*------------------------------*
      *      Save user access
      *------------------------------*/
-    json_t *user = trmsg_get_active_message(priv->users_accesses, username);
-    if(!user) {
-        create_new_user(gobj, jwt_payload);
-        user = trmsg_get_active_message(priv->users_accesses, username);
+    json_t *user_access = trmsg_get_active_message(priv->users_accesses, username);
+    if(!user_access) {
+        create_new_user(gobj, username, jwt_payload);
+        user_access = trmsg_get_active_message(priv->users_accesses, username);
     }
-    kw_get_dict(user, "_sessions", json_object(), KW_CREATE);
+    kw_get_dict(user_access, "_sessions", json_object(), KW_CREATE);
 
     /*--------------------------------------------*
      *  Get sessions, check max sessions allowed
@@ -539,7 +569,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*------------------------------*
      *      Get user roles
      *------------------------------*/
-    json_t *access_roles = get_user_roles(gobj, username);
+    json_t *access_roles = get_user_roles(gobj, username, kw);
 
     /*--------------------------------*
      *      Autorizado, informa
@@ -699,10 +729,15 @@ PRIVATE json_t *identify_system_user(
  ***************************************************************************/
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
-    const char *username
+    const char *username,
+    json_t *kw // not owned
 )
 {
-// TODO
+    const char *iev_dst_yuno = kw_get_str(kw, "dst_yuno", "", 0);
+    const char *iev_dst_role = kw_get_str(kw, "dst_role", "", 0);
+    const char *iev_dst_service = kw_get_str(kw, "dst_service", "", 0);
+
+    // TODO
     const char *service_name = "fichajes";
 
     json_t *access_roles = json_object();
@@ -716,11 +751,9 @@ PRIVATE json_t *get_user_roles(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int create_new_user(hgobj gobj, json_t *jwt_payload)
+PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payload)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED); // User id
 
     /*
      *  Crea user en users_accesses
