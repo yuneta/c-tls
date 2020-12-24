@@ -89,7 +89,8 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag----------------default---------description---------- */
-SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_RD,             0,          "JWT public key"),
+SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,              "Max sessions per user"),
+SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_RD,             0,              "JWT public key"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,              "Initial data for treedb"),
 SDATA (ASN_INTEGER,     "timeout",          SDF_RD,             1*1000,         "Timeout"),
 SDATA (ASN_COUNTER64,   "txMsgs",           SDF_RD|SDF_PSTATS,  0,              "Messages transmitted"),
@@ -139,6 +140,7 @@ SDATA_END()
  *---------------------------------------------*/
 typedef struct _PRIVATE_DATA {
     int32_t timeout;
+    int32_t max_sessions_per_user;
     hgobj timer;
     uint64_t *ptxMsgs;
     uint64_t *prxMsgs;
@@ -274,6 +276,7 @@ PRIVATE void mt_create(hgobj gobj)
      *  HACK The writable attributes must be repeated in mt_writing method.
      */
     SET_PRIV(timeout,               gobj_read_int32_attr)
+    SET_PRIV(max_sessions_per_user, gobj_read_int32_attr)
 }
 
 /***************************************************************************
@@ -283,7 +286,8 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    IF_EQ_SET_PRIV(timeout,             gobj_read_int32_attr)
+    IF_EQ_SET_PRIV(timeout,                 gobj_read_int32_attr)
+    ELIF_EQ_SET_PRIV(max_sessions_per_user, gobj_read_int32_attr)
     END_EQ_SET_PRIV()
 }
 
@@ -343,32 +347,31 @@ PRIVATE int mt_start(hgobj gobj)
         }
     }
 
+    /*---------------------------*
+     *  Open topics as messages
+     *---------------------------*/
+    trmsg_open_topics(
+        priv->tranger,
+        db_messages_desc
+    );
+
+    /*
+     *  To open users accesses
+     */
+    priv->users_accesses = trmsg_open_list(
+        priv->tranger,
+        "users_accesses",   // topic
+        json_pack("{s:i}",  // filter
+            "max_key_instances", 1
+        )
+    );
+
     /*
      *  Periodic timer for tasks
+     *  NOO, chequea bien, se lleva mal con libuv
      */
     //gobj_start(priv->timer);
     //set_timeout_periodic(priv->timer, priv->timeout);
-
-    if(1) {
-        /*---------------------------*
-         *  Open topics as messages
-         *---------------------------*/
-        trmsg_open_topics(
-            priv->tranger,
-            db_messages_desc
-        );
-
-        /*
-         *  To open users accesses
-         */
-        priv->users_accesses = trmsg_open_list(
-            priv->tranger,
-            "users_accesses",     // topic
-            json_pack("{s:i}",  // filter
-                "max_key_instances", 1
-            )
-        );
-    }
 
     return 0;
 }
@@ -401,6 +404,9 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     const char *jwt= kw_get_str(kw, "jwt", "", 0);
 
     if(empty_string(jwt)) {
+        /*-------------------------------*
+         *  Without JWT, check local
+         *-------------------------------*/
         if(is_ip_denied(peername)) {
             /*
              *  IP autorizada sin user/passw, informa
@@ -439,7 +445,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         }
 
         /*
-         *  Need auth
+         *  Reject, Need auth
          */
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
@@ -448,6 +454,9 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         );
     }
 
+    /*-------------------------------*
+     *      Check user JWT
+     *-------------------------------*/
     json_t *jwt_payload = NULL;
     if(!oauth2_token_verify(priv->oath2_log, priv->verify, jwt, &jwt_payload)) {
         JSON_DECREF(jwt_payload);
@@ -459,29 +468,20 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     }
 
     /*
+     *  Get username
      *  WARNING "preferred_username" is used in keycloak! In others Oauth???
      */
     const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
 
-    /*
+    /*------------------------------------------------*
      *  HACK guarda jwt_payload en src (IEvent_srv)
-     */
+     *------------------------------------------------*/
     gobj_write_json_attr(src, "jwt_payload", jwt_payload);
     gobj_write_str_attr(src, "__username__", username);
 
-    /*
-     *  User autentificado, crea su registro si es nuevo
-     *  e informa de su estado en el ack.
-     */
-    if(priv->users_accesses) {
-        json_t *user = trmsg_get_active_message(priv->users_accesses, username);
-        if(!user) {
-            create_new_user(gobj, jwt_payload);
-            user = trmsg_get_active_message(priv->users_accesses, username);
-        }
-        kw_get_dict(user, "_sessions", json_object(), KW_CREATE);
-    }
-
+    /*------------------------------*
+     *      Get user roles
+     *------------------------------*/
 /* TODO consigue y devuelve los roles del user? para darselos al frontend?
     json_t *access_roles = get_access_roles(
         gobj,
@@ -490,9 +490,57 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     json_object_set_new(jwt_payload, "access_roles", access_roles);
     */
 
-    /*
-     *  Autorizado, informa
-     */
+    /*------------------------------*
+     *      Save user access
+     *------------------------------*/
+    json_t *user = trmsg_get_active_message(priv->users_accesses, username);
+    if(!user) {
+        create_new_user(gobj, jwt_payload);
+        user = trmsg_get_active_message(priv->users_accesses, username);
+    }
+    kw_get_dict(user, "_sessions", json_object(), KW_CREATE);
+
+    /*--------------------------------------------*
+     *  Get sessions, check max sessions allowed
+     *--------------------------------------------*/
+    json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+    json_t *session;
+    void *n; const char *k;
+    json_object_foreach_safe(sessions, n, k, session) {
+        if(json_object_size(sessions) <= priv->max_sessions_per_user) {
+            break;
+        }
+        /*-------------------------------*
+         *  Check max sessions allowed
+         *  Drop the old sessions
+         *-------------------------------*/
+        hgobj prev_channel_gobj = (hgobj)(size_t)kw_get_int(session, "channel_gobj", 0, KW_REQUIRED);
+        log_info(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INFO,
+            "msg",          "%s", "Drop session, max sessions reached",
+            "user",         "%s", username,
+            NULL
+        );
+        gobj_send_event(prev_channel_gobj, "EV_DROP", 0, gobj);
+        json_object_del(sessions, k);
+    }
+
+    /*-------------------------------*
+     *      Save session
+     *  WARNING "session_state" is from keycloak!!!
+     *  And others???
+     *-------------------------------*/
+    const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
+    session = json_pack("{s:I}",
+        "channel_gobj", (json_int_t)(size_t)src
+    );
+    json_object_set_new(sessions, session_id, session);
+
+    /*--------------------------------*
+     *      Autorizado, informa
+     *--------------------------------*/
     JSON_DECREF(jwt_payload);
     KW_DECREF(kw);
     return json_pack("{s:i, s:s, s:s}",
