@@ -702,6 +702,7 @@ PRIVATE json_t *get_user_roles(
     const char *username
 )
 {
+// TODO
     const char *service_name = "fichajes";
 
     json_t *access_roles = json_object();
