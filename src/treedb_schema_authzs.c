@@ -184,7 +184,7 @@ static char treedb_schema_authzs[]= "\
                     'default': false,                               \n\
                     'flag': [                                       \n\
                         'persistent',                               \n\
-                        'inherit '                                  \n\
+                        'inherit'                                   \n\
                     ]                                               \n\
                 },                                                  \n\
                 'realm_domain': {                                   \n\
