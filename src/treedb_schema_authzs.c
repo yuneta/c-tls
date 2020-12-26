@@ -9,6 +9,8 @@
     [↖] n fkeys     (n parents)
 
 
+    * field required
+    = field inherited
 
                         roles
             ┌───────────────────────────┐
@@ -137,7 +139,7 @@ static char treedb_schema_authzs[]= "\
     'schema_version': '1',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
-            'topic_name': 'roles' ,                                 \n\
+            'topic_name': 'roles',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
             'topic_version': '1',                                   \n\
