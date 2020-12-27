@@ -22,9 +22,10 @@
             │                           │
             │* description              │
             │= disabled                 │
-            │* realm_domain             │
+            │* realm_owner              │
             │* realm_role               │
             │* realm_name               │
+            │* realm_env                │
             │* yuno_role                │
             │* yuno_name                │
             │* service                  │
@@ -189,7 +190,7 @@ static char treedb_schema_authzs[]= "\
                         'inherit'                                   \n\
                     ]                                               \n\
                 },                                                  \n\
-                'realm_domain': {                                   \n\
+                'realm_owner': {                                   \n\
                     'header': 'Realm Domain',                       \n\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
@@ -209,6 +210,15 @@ static char treedb_schema_authzs[]= "\
                 },                                                  \n\
                 'realm_name': {                                     \n\
                     'header': 'Realm Name',                         \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'realm_env': {                                      \n\
+                    'header': 'Realm Env',                          \n\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
