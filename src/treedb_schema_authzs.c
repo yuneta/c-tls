@@ -2,11 +2,11 @@
 
 /*
  *
-    ()  str hook    (1 child)
     {}  dict hook   (N unique childs)
     []  list hook   (n not-unique childs)
     (↖) 1 fkey      (1 parent)
     [↖] n fkeys     (n parents)
+    {↖} N fkeys     (N parents) ???
 
 
     * field required
