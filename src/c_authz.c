@@ -318,11 +318,12 @@ PRIVATE int mt_start(hgobj gobj)
         json_object_foreach(initial_load, topic_name, topic_records) {
             int idx; json_t *record;
             json_array_foreach(topic_records, idx, record) {
-                json_t *kw_update_node = json_pack("{s:s, s:O, s:{s:b}}",
+                json_t *kw_update_node = json_pack("{s:s, s:O, s:{s:b, s:b}}",
                     "topic_name", topic_name,
                     "record", record,
                     "options",
-                        "create", 1
+                        "create", 1,
+                        "auto-link", 1
                 );
                 gobj_send_event(
                     priv->gobj_treedb,
