@@ -386,6 +386,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         /*-------------------------------*
          *  Without JWT, check local
          *-------------------------------*/
+
         if(is_ip_denied(peername)) {
             /*
              *  IP autorizada sin user/passw, informa
