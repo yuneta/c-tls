@@ -98,14 +98,6 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,              "Max sessions per user"),
 SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_RD,             0,              "JWT public key"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,              "Initial data for treedb"),
-SDATA (ASN_INTEGER,     "timeout",          SDF_RD,             1*1000,         "Timeout"),
-SDATA (ASN_COUNTER64,   "txMsgs",           SDF_RD|SDF_PSTATS,  0,              "Messages transmitted"),
-SDATA (ASN_COUNTER64,   "rxMsgs",           SDF_RD|SDF_RSTATS,  0,              "Messages receiveds"),
-
-SDATA (ASN_COUNTER64,   "txMsgsec",         SDF_RD|SDF_RSTATS,  0,              "Messages by second"),
-SDATA (ASN_COUNTER64,   "rxMsgsec",         SDF_RD|SDF_RSTATS,  0,              "Messages by second"),
-SDATA (ASN_COUNTER64,   "maxtxMsgsec",      SDF_WR|SDF_RSTATS|SDF_AUTHZ_W, 0,   "Max Tx Messages by second"),
-SDATA (ASN_COUNTER64,   "maxrxMsgsec",      SDF_WR|SDF_RSTATS|SDF_AUTHZ_W, 0,   "Max Rx Messages by second"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,                  0,          "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,                  0,          "subscriber of output-events. Not a child gobj."),
@@ -145,13 +137,7 @@ SDATA_END()
  *              Private data
  *---------------------------------------------*/
 typedef struct _PRIVATE_DATA {
-    int32_t timeout;
     int32_t max_sessions_per_user;
-    hgobj timer;
-    uint64_t *ptxMsgs;
-    uint64_t *prxMsgs;
-    uint64_t txMsgsec;
-    uint64_t rxMsgsec;
 
     hgobj gobj_tranger;
     hgobj gobj_treedb;
@@ -190,10 +176,6 @@ PRIVATE void mt_create(hgobj gobj)
     if(!jn_treedb_schema) {
         exit(-1);
     }
-
-    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
-    priv->ptxMsgs = gobj_danger_attr_ptr(gobj, "txMsgs");
-    priv->prxMsgs = gobj_danger_attr_ptr(gobj, "rxMsgs");
 
     /*---------------------------*
      *      Oauth
@@ -282,7 +264,6 @@ PRIVATE void mt_create(hgobj gobj)
      *  Do copy of heavy used parameters, for quick access.
      *  HACK The writable attributes must be repeated in mt_writing method.
      */
-    SET_PRIV(timeout,               gobj_read_int32_attr)
     SET_PRIV(max_sessions_per_user, gobj_read_int32_attr)
 }
 
@@ -293,8 +274,7 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    IF_EQ_SET_PRIV(timeout,                 gobj_read_int32_attr)
-    ELIF_EQ_SET_PRIV(max_sessions_per_user, gobj_read_int32_attr)
+    IF_EQ_SET_PRIV(max_sessions_per_user,           gobj_read_int32_attr)
     END_EQ_SET_PRIV()
 }
 
@@ -373,13 +353,6 @@ PRIVATE int mt_start(hgobj gobj)
         )
     );
 
-    /*
-     *  Periodic timer for tasks
-     *  NOO, chequea bien, se lleva mal con libuv
-     */
-    //gobj_start(priv->timer);
-    //set_timeout_periodic(priv->timer, priv->timeout);
-
     return 0;
 }
 
@@ -389,9 +362,6 @@ PRIVATE int mt_start(hgobj gobj)
 PRIVATE int mt_stop(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    clear_timeout(priv->timer);
-    gobj_stop(priv->timer);
 
     gobj_stop(priv->gobj_treedb);
     gobj_stop(priv->gobj_tranger);
@@ -733,10 +703,10 @@ PRIVATE json_t *get_user_roles(
     json_t *kw // not owned
 )
 {
-    const char *realm_owner = gobj_yuno_realm_owner();
-    const char *iev_dst_yuno = kw_get_str(kw, "dst_yuno", "", 0);
-    const char *iev_dst_role = kw_get_str(kw, "dst_role", "", 0);
-    const char *iev_dst_service = kw_get_str(kw, "dst_service", "", 0);
+//     const char *realm_owner = gobj_yuno_realm_owner();
+//     const char *iev_dst_yuno = kw_get_str(kw, "dst_yuno", "", 0);
+//     const char *iev_dst_role = kw_get_str(kw, "dst_role", "", 0);
+//     const char *iev_dst_service = kw_get_str(kw, "dst_service", "", 0);
 
     // TODO
     const char *service_name = "fichajes";
@@ -857,28 +827,16 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 }
 
 /***************************************************************************
- *
- ***************************************************************************/
-PRIVATE int ac_timeout(hgobj gobj, const char *event, json_t *kw, hgobj src)
-{
-
-    KW_DECREF(kw);
-    return 0;
-}
-
-/***************************************************************************
  *                          FSM
  ***************************************************************************/
-PRIVATE const EVENT input_events[] = {
+PRIVATE const EVENT input_events[] = { // HACK System gclass, not public events
     // top input
     // bottom input
     {"EV_ON_CLOSE",     0,  0,  ""},
-    {"EV_TIMEOUT",      0,  0,  ""},
-    {"EV_STOPPED",      0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
 };
-PRIVATE const EVENT output_events[] = {
+PRIVATE const EVENT output_events[] = { // HACK System gclass, not public events
     {NULL, 0, 0, ""}
 };
 PRIVATE const char *state_names[] = {
@@ -888,8 +846,6 @@ PRIVATE const char *state_names[] = {
 
 PRIVATE EV_ACTION ST_IDLE[] = {
     {"EV_ON_CLOSE",             ac_on_close,            0},
-    {"EV_TIMEOUT",              ac_timeout,             0},
-    {"EV_STOPPED",              0,                      0},
     {0,0,0}
 };
 
