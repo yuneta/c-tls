@@ -43,7 +43,7 @@ PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payloa
 
 PRIVATE json_t *identify_system_user(
     hgobj gobj,
-    const char *username,
+    const char **username,
     BOOL include_groups,
     BOOL verbose
 );
@@ -400,18 +400,17 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         struct passwd *pw = getpwuid(getuid());
         username = pw->pw_name;
 
-        json_t *user = identify_system_user(gobj, username, TRUE, FALSE);
+        json_t *user = identify_system_user(gobj, &username, TRUE, FALSE);
         if(!user) {
             KW_DECREF(kw);
             return json_pack("{s:i, s:s, s:s}",
                 "result", -1,
                 "comment", "System user not found",
-                "username", username
+                "username", *username
             );
         }
-        JSON_DECREF(user);
-
         json_t *access_roles = get_user_roles(gobj, username, kw);
+        JSON_DECREF(user);
 
         if(is_ip_allowed(peername)) {
             /*
@@ -649,14 +648,14 @@ PRIVATE void oauth2_log_callback(
  ***************************************************************************/
 PRIVATE json_t *identify_system_user(
     hgobj gobj,
-    const char *username,
+    const char **username,
     BOOL include_groups,
     BOOL verbose
 )
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    json_t *user = gobj_get_node(priv->gobj_treedb, "users", username, 0, gobj);
+    json_t *user = gobj_get_node(priv->gobj_treedb, "users", *username, 0, gobj);
     if(user) {
         return user;
     }
@@ -665,15 +664,25 @@ PRIVATE json_t *identify_system_user(
         /*-------------------------------*
          *  HACK user's group is valid
          *-------------------------------*/
-        gid_t groups[10];
+        static gid_t groups[30]; // HACK to use outside
         int ngroups = sizeof(groups)/sizeof(groups[0]);
 
-        getgrouplist(username, 0, groups, &ngroups);
+        getgrouplist(*username, 0, groups, &ngroups);
         for(int i=0; i<ngroups; i++) {
             struct group *gr = getgrgid(groups[i]);
             if(gr) {
                 user = gobj_get_node(priv->gobj_treedb, "users", gr->gr_name, 0, gobj);
                 if(user) {
+                    log_warning(0,
+                        "gobj",         "%s", gobj_full_name(gobj),
+                        "function",     "%s", __FUNCTION__,
+                        "msgset",       "%s", MSGSET_INFO,
+                        "msg",          "%s", "Using groupname instead of username",
+                        "username",     "%s", *username,
+                        "groupname",    "%s", gr->gr_name,
+                        NULL
+                    );
+                    *username = gr->gr_name;
                     return user;
                 }
             }
@@ -686,7 +695,7 @@ PRIVATE json_t *identify_system_user(
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_INFO,
             "msg",          "%s", "username not found in system",
-            "username",     "%s", username,
+            "username",     "%s", *username,
             NULL
         );
     }
@@ -710,18 +719,48 @@ PRIVATE json_t *get_user_roles(
     json_t *kw // not owned
 )
 {
-//     const char *realm_owner = gobj_yuno_realm_owner();
-//     const char *iev_dst_yuno = kw_get_str(kw, "dst_yuno", "", 0);
-//     const char *iev_dst_role = kw_get_str(kw, "dst_role", "", 0);
-//     const char *iev_dst_service = kw_get_str(kw, "dst_service", "", 0);
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    // TODO
-    const char *service_name = "fichajes";
+    json_t *jn_dst_service = kw_find_path(
+        kw,
+        "__md_iev__`ievent_gate_stack`0`dst_service",
+        TRUE
+    );
+    const char *dst_service = json_string_value(jn_dst_service);
+    if(empty_string(dst_service)) {
+        return json_object();
+    }
 
     json_t *access_roles = json_object();
+    json_t *service_roles = kw_get_list(access_roles, dst_service, json_array(), KW_CREATE);
 
-    json_t *service_roles = kw_get_list(access_roles, service_name, json_array(), KW_CREATE);
-    json_array_append_new(service_roles, json_string("owner"));
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        username,
+        json_pack("{s:b}", "fkey-ref-list-dict", 1),
+        gobj
+    );
+    json_t *jn_roles = kw_get_list(user, "role_id", 0, KW_REQUIRED);
+
+    int idx; json_t *role_id;
+    json_array_foreach(jn_roles, idx, role_id) {
+        const char *topic_name = kw_get_str(role_id, "topic_name", "", KW_REQUIRED);
+        const char *id = kw_get_str(role_id, "id", "", KW_REQUIRED);
+        json_t *role = gobj_get_node(priv->gobj_treedb, topic_name, id, 0, gobj);
+        if(role) {
+            const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
+            if(strcmp(service, dst_service)==0 || strcmp(service, "==*")==0) {
+                json_array_append_new(
+                    service_roles,
+                    json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                );
+            }
+            JSON_DECREF(role);
+        }
+    }
+
+    JSON_DECREF(user);
 
     return access_roles;
 }
@@ -984,7 +1023,7 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
 
     json_t *authzs_list = gobj_authzs(gobj_to_check, authz);
 
-    print_json2("=====================>", authzs_list); // TODO
+    print_json2("TODO =====================>", authzs_list); // TODO
 
     JSON_DECREF(authzs_list);
     KW_DECREF(kw);
