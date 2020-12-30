@@ -409,6 +409,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "username", username
             );
         }
+        JSON_DECREF(user);
 
         json_t *access_roles = get_user_roles(gobj, username, kw);
 
@@ -451,7 +452,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     }
 
     /*-------------------------------*
-     *      Check user JWT
+     *      HERE with user JWT
      *-------------------------------*/
     json_t *jwt_payload = NULL;
     if(!oauth2_token_verify(priv->oath2_log, priv->verify, jwt, &jwt_payload)) {
@@ -546,14 +547,18 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
-    JSON_DECREF(jwt_payload);
-    KW_DECREF(kw);
-    return json_pack("{s:i, s:s, s:s, s:o}",
+    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:o}",
         "result", 0,
         "comment", "JWT User authenticated",
         "username", username,
         "access_roles", access_roles
     );
+
+    JSON_DECREF(user);
+    JSON_DECREF(jwt_payload);
+    KW_DECREF(kw);
+
+    return jn_resp;
 }
 
 
