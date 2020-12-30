@@ -323,7 +323,7 @@ PRIVATE int mt_start(hgobj gobj)
                     "record", record,
                     "options",
                         "create", 1,
-                        "auto-link", 1
+                        "autolink", 1
                 );
                 gobj_send_event(
                     priv->gobj_treedb,
