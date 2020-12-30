@@ -749,12 +749,15 @@ PRIVATE json_t *get_user_roles(
         const char *id = kw_get_str(role_id, "id", "", KW_REQUIRED);
         json_t *role = gobj_get_node(priv->gobj_treedb, topic_name, id, 0, gobj);
         if(role) {
-            const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
-            if(strcmp(service, dst_service)==0 || strcmp(service, "==*")==0) {
-                json_array_append_new(
-                    service_roles,
-                    json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                );
+            BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED);
+            if(!disabled) {
+                const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
+                if(strcmp(service, dst_service)==0 || strcmp(service, "==*")==0) {
+                    json_array_append_new(
+                        service_roles,
+                        json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                    );
+                }
             }
             JSON_DECREF(role);
         }
