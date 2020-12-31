@@ -468,7 +468,13 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *-------------------------------------------------*/
     // WARNING "preferred_username" is used in keycloak! In others Oauth???
     username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
-    json_t *user = gobj_get_node(priv->gobj_treedb, "users", username, 0, gobj);
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        0,
+        gobj
+    );
     if(!user) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
@@ -655,7 +661,13 @@ PRIVATE json_t *identify_system_user(
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    json_t *user = gobj_get_node(priv->gobj_treedb, "users", *username, 0, gobj);
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", *username),
+        0,
+        gobj
+    );
     if(user) {
         return user;
     }
@@ -671,7 +683,13 @@ PRIVATE json_t *identify_system_user(
         for(int i=0; i<ngroups; i++) {
             struct group *gr = getgrgid(groups[i]);
             if(gr) {
-                user = gobj_get_node(priv->gobj_treedb, "users", gr->gr_name, 0, gobj);
+                user = gobj_get_node(
+                    priv->gobj_treedb,
+                    "users",
+                    json_pack("{s:s}", "id", gr->gr_name),
+                    0,
+                    gobj
+                );
                 if(user) {
                     log_warning(0,
                         "gobj",         "%s", gobj_full_name(gobj),
@@ -737,7 +755,7 @@ PRIVATE json_t *get_user_roles(
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
-        username,
+        json_pack("{s:s}", "id", username),
         json_pack("{s:b}", "fkey-ref-list-dict", 1),
         gobj
     );
@@ -747,7 +765,13 @@ PRIVATE json_t *get_user_roles(
     json_array_foreach(jn_roles, idx, role_id) {
         const char *topic_name = kw_get_str(role_id, "topic_name", "", KW_REQUIRED);
         const char *id = kw_get_str(role_id, "id", "", KW_REQUIRED);
-        json_t *role = gobj_get_node(priv->gobj_treedb, topic_name, id, 0, gobj);
+        json_t *role = gobj_get_node(
+            priv->gobj_treedb,
+            topic_name,
+            json_pack("{s:s}", "id", id),
+            0,
+            gobj
+        );
         if(role) {
             BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED);
             if(!disabled) {
