@@ -50,6 +50,7 @@ PRIVATE json_t *identify_system_user(
 
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
+    const char *realm_id,
     const char *username,
     json_t *kw  // not owned
 );
@@ -409,7 +410,12 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "username", *username
             );
         }
-        json_t *access_roles = get_user_roles(gobj, username, kw);
+        json_t *access_roles = get_user_roles(
+            gobj,
+            gobj_yuno_realm_id(),
+            username,
+            kw
+        );
         JSON_DECREF(user);
 
         if(is_ip_allowed(peername)) {
@@ -547,7 +553,12 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*------------------------------*
      *      Get user roles
      *------------------------------*/
-    json_t *access_roles = get_user_roles(gobj, username, kw);
+    json_t *access_roles = get_user_roles(
+        gobj,
+        gobj_yuno_realm_id(),
+        username,
+        kw
+    );
 
     /*--------------------------------*
      *      Autorizado, informa
@@ -733,6 +744,7 @@ PRIVATE json_t *identify_system_user(
  ***************************************************************************/
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
+    const char *realm_id,
     const char *username,
     json_t *kw // not owned
 )
@@ -756,31 +768,46 @@ PRIVATE json_t *get_user_roles(
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", username),
-        json_pack("{s:b}", "fkey-ref-list-dict", 1),
+        json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
         gobj
     );
     json_t *jn_roles = kw_get_list(user, "role_id", 0, KW_REQUIRED);
 
     int idx; json_t *role_id;
     json_array_foreach(jn_roles, idx, role_id) {
-        const char *topic_name = kw_get_str(role_id, "topic_name", "", KW_REQUIRED);
-        const char *id = kw_get_str(role_id, "id", "", KW_REQUIRED);
         json_t *role = gobj_get_node(
             priv->gobj_treedb,
-            topic_name,
-            json_pack("{s:s}", "id", id),
-            0,
+            kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
+            json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
+            json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
             gobj
         );
         if(role) {
             BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED);
             if(!disabled) {
-                const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
-                if(strcmp(service, dst_service)==0 || strcmp(service, "==*")==0) {
-                    json_array_append_new(
-                        service_roles,
-                        json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                json_t *jn_authorizations = kw_get_list(role, "authorizations", 0, KW_REQUIRED);
+                int idx; json_t *jn_authorization;
+                json_array_foreach(jn_authorizations, idx, jn_authorization) {
+                    json_t *authorization = gobj_get_node(
+                        priv->gobj_treedb,
+                        kw_get_str(jn_authorization, "topic_name", "", KW_REQUIRED),
+                        json_pack("{s:s}", "id",
+                            kw_get_str(jn_authorization, "id", "", KW_REQUIRED)
+                        ),
+                        json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
+                        gobj
                     );
+
+                    if(authorization) {
+                        const char *service = kw_get_str(authorization, "service", "", KW_REQUIRED);
+                        if(strcmp(service, dst_service)==0 || strcmp(service, "==*")==0) {
+                            json_array_append_new(
+                                service_roles,
+                                json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                            );
+                        }
+                        JSON_DECREF(authorization);
+                    }
                 }
             }
             JSON_DECREF(role);

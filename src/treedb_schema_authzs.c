@@ -49,8 +49,6 @@
             │               role_id [↖] │ ──────────┘ n
             │                           │
             │* description              │
-            │* yuno_role                │
-            │* yuno_name                │
             │* service                  │
             │* constraints              │
             └───────────────────────────┘
@@ -276,24 +274,6 @@ static char treedb_schema_authzs[]= "\
                 },                                                  \n\
                 'description': {                                    \n\
                     'header': 'Description',                        \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'yuno_role': {                                      \n\
-                    'header': 'Yuno Role',                          \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'yuno_name': {                                      \n\
-                    'header': 'Yuno Name',                          \n\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
