@@ -22,13 +22,7 @@
             │                           │
             │* description              │
             │= disabled                 │
-            │* realm_owner              │
-            │* realm_role               │
-            │* realm_name               │
-            │* realm_env                │
-            │* yuno_role                │
-            │* yuno_name                │
-            │* service                  │
+            │* realm_id                 │
             │                           │
             │                           │
             │         authorizations {} │ ◀─────────┐N
@@ -54,6 +48,10 @@
             │                           │           │
             │               role_id [↖] │ ──────────┘ n
             │                           │
+            │* description              │
+            │* yuno_role                │
+            │* yuno_name                │
+            │* service                  │
             │* constraints              │
             └───────────────────────────┘
 
@@ -190,62 +188,8 @@ static char treedb_schema_authzs[]= "\
                         'inherit'                                   \n\
                     ]                                               \n\
                 },                                                  \n\
-                'realm_owner': {                                   \n\
-                    'header': 'Realm Domain',                       \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'realm_role': {                                     \n\
-                    'header': 'Realm Role',                         \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'realm_name': {                                     \n\
-                    'header': 'Realm Name',                         \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'realm_env': {                                      \n\
-                    'header': 'Realm Env',                          \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'yuno_role': {                                      \n\
-                    'header': 'Yuno Role',                          \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'yuno_name': {                                      \n\
-                    'header': 'Yuno Name',                          \n\
-                    'fillspace': 10,                                \n\
-                    'type': 'string',                               \n\
-                    'flag': [                                       \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
-                    ]                                               \n\
-                },                                                  \n\
-                'service': {                                        \n\
-                    'header': 'Service',                            \n\
+                'realm_id': {                                       \n\
+                    'header': 'Realm Id',                           \n\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
@@ -328,6 +272,42 @@ static char treedb_schema_authzs[]= "\
                     'type': 'array',                                \n\
                     'flag': [                                       \n\
                         'fkey'                                      \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'description': {                                    \n\
+                    'header': 'Description',                        \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'yuno_role': {                                      \n\
+                    'header': 'Yuno Role',                          \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'yuno_name': {                                      \n\
+                    'header': 'Yuno Name',                          \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'service': {                                        \n\
+                    'header': 'Service',                            \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
                     ]                                               \n\
                 },                                                  \n\
                 'constraints': {                                    \n\
