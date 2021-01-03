@@ -768,7 +768,7 @@ PRIVATE json_t *get_user_roles(
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", username),
-        json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
+        json_pack("{s:b}", "list-dict", 1),
         gobj
     );
     json_t *jn_roles = kw_get_list(user, "role_id", 0, KW_REQUIRED);
@@ -779,7 +779,7 @@ PRIVATE json_t *get_user_roles(
             priv->gobj_treedb,
             kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
             json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
-            json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
+            json_pack("{s:b}", "list-dict", 1),
             gobj
         );
         if(role) {
@@ -794,7 +794,7 @@ PRIVATE json_t *get_user_roles(
                         json_pack("{s:s}", "id",
                             kw_get_str(jn_authorization, "id", "", KW_REQUIRED)
                         ),
-                        json_pack("{s:b, s:b}", "fkey-ref-list-dict", 1, "hook-ref-list-dict", 1),
+                        json_pack("{s:b}", "list-dict", 1),
                         gobj
                     );
 
