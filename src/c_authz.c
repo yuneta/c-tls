@@ -39,7 +39,7 @@ PRIVATE void oauth2_log_callback(
     oauth2_log_level_t level,
     const char *msg
 );
-PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payload);
+PRIVATE int add_user_login(hgobj gobj, const char *username, json_t *jwt_payload);
 
 PRIVATE json_t *identify_system_user(
     hgobj gobj,
@@ -486,7 +486,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         KW_DECREF(kw);
         return json_pack("{s:i, s:s, s:s}",
             "result", -1,
-            "comment", "User not found",
+            "comment", "User not authorized",
             "username", username
         );
     }
@@ -500,17 +500,21 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*------------------------------*
      *      Save user access
      *------------------------------*/
-    json_t *user_access = trmsg_get_active_message(priv->users_accesses, username);
-    if(!user_access) {
-        create_new_user(gobj, username, jwt_payload);
-        user_access = trmsg_get_active_message(priv->users_accesses, username);
-    }
-    kw_get_dict(user_access, "_sessions", json_object(), KW_CREATE);
+    add_user_login(gobj, username, jwt_payload);
 
     /*--------------------------------------------*
      *  Get sessions, check max sessions allowed
      *--------------------------------------------*/
     json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+    if(!sessions) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "_sessions NULL",
+            NULL
+        );
+    }
     json_t *session;
     void *n; const char *k;
     json_object_foreach_safe(sessions, n, k, session) {
@@ -822,7 +826,7 @@ PRIVATE json_t *get_user_roles(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payload)
+PRIVATE int add_user_login(hgobj gobj, const char *username, json_t *jwt_payload)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
@@ -830,7 +834,7 @@ PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payloa
      *  Crea user en users_accesses
      */
     json_t *user = json_pack("{s:s, s:s, s:I, s:O}",
-        "ev", "new_user",
+        "ev", "login",
         "username", username,
         "tm", (json_int_t)time_in_seconds(),
         "jwt_payload", jwt_payload
@@ -844,7 +848,32 @@ PRIVATE int create_new_user(hgobj gobj, const char *username, json_t *jwt_payloa
         0
     );
 
-    user = trmsg_get_active_message(priv->users_accesses, username);
+    return 0;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE int add_user_logout(hgobj gobj, const char *username)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    /*
+     *  Crea user en users_accesses
+     */
+    json_t *user = json_pack("{s:s, s:s, s:I}",
+        "ev", "logout",
+        "username", username,
+        "tm", (json_int_t)time_in_seconds()
+    );
+
+    trmsg_add_instance(
+        priv->tranger,
+        "users_accesses",
+        user, // owned
+        0,
+        0
+    );
 
     return 0;
 }
@@ -889,35 +918,31 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
     if(priv->tranger) { // Si han pasado a pause es 0
         const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
         const char *username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
-        json_t *user_ = trmsg_get_active_message(priv->users_accesses, username);
-        if(!user_) {
+
+        json_t *user = gobj_get_node(
+            priv->gobj_treedb,
+            "users",
+            json_pack("{s:s}", "id", username),
+            0,
+            gobj
+        );
+        if(!user) {
             log_error(0,
                 "gobj",         "%s", gobj_full_name(gobj),
                 "function",     "%s", __FUNCTION__,
                 "msgset",       "%s", MSGSET_INTERNAL_ERROR,
                 "msg",          "%s", "What fuck! user not found",
-                "username",          "%s", username,
+                "username",     "%s", username,
                 NULL
             );
+        } else {
+            json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+            json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
+            JSON_DECREF(session);
+
+            add_user_logout(gobj, username);
+            json_decref(user);
         }
-        json_t *user = json_deep_copy(user_);
-        json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
-        json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
-        JSON_DECREF(session);
-
-        json_object_set_new(user, "ev", json_string("logout"));
-        json_object_set_new(user, "tm", json_integer(time_in_seconds()));
-
-        /*
-         *  Save logout record
-         */
-        trmsg_add_instance(
-            priv->tranger,
-            "users_accesses",
-            user, // owned
-            0,
-            0
-        );
     }
 
     gobj_unsubscribe_event(src, "EV_ON_CLOSE", 0, gobj);

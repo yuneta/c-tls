@@ -238,6 +238,13 @@ static char treedb_schema_authzs[]= "\
                         'fkey'                                      \n\
                     ]                                               \n\
                 },                                                  \n\
+                '_sessions': {                                      \n\
+                    'header': 'Sessions',                           \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'dict',                                 \n\
+                    'flag': [                                       \n\
+                    ]                                               \n\
+                },                                                  \n\
                 'properties': {                                     \n\
                     'header': 'Properties',                         \n\
                     'fillspace': 10,                                \n\
