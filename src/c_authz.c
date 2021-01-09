@@ -776,7 +776,7 @@ PRIVATE json_t *get_user_roles(
         json_pack("{s:b}", "list-dict", 1),
         gobj
     );
-    json_t *jn_roles = kw_get_list(user, "role_ids", 0, KW_REQUIRED);
+    json_t *jn_roles = kw_get_list(user, "roles", 0, KW_REQUIRED);
 
     int idx; json_t *role_id;
     json_array_foreach(jn_roles, idx, role_id) {

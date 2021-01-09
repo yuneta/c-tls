@@ -35,7 +35,7 @@
             ┌───────────────────────────┐   │
             │* id                       │   │
             │                           │   │
-            │              role_ids [↖] │ ──┘n
+            │                 roles [↖] │ ──┘n
             │                           │
             │  properties               │
             └───────────────────────────┘
@@ -124,7 +124,7 @@ static char treedb_schema_authzs[]= "\
                     'type': 'dict',                                 \n\
                     'flag': ['hook'],                               \n\
                     'hook': {                                       \n\
-                        'users': 'role_ids'                         \n\
+                        'users': 'roles'                            \n\
                     }                                               \n\
                 }                                                   \n\
             }                                                       \n\
@@ -144,7 +144,7 @@ static char treedb_schema_authzs[]= "\
                         'required'                                  \n\
                     ]                                               \n\
                 },                                                  \n\
-                'role_ids': {                                       \n\
+                'roles': {                                          \n\
                     'header': 'Role',                               \n\
                     'fillspace': 10,                                \n\
                     'type': 'array',                                \n\
