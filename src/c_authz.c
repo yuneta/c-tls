@@ -216,7 +216,7 @@ PRIVATE void mt_create(hgobj gobj)
         "authzs",
         gobj_yuno_realm_owner(),
         gobj_yuno_realm_id(),
-        gobj_yuno_role_plus_name(),
+        "tranger",
         TRUE
     );
 
