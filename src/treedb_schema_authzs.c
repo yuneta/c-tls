@@ -46,7 +46,7 @@
 
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
-    'id': 'authzs',                                                 \n\
+    'id': 'treedb_authzs',                                          \n\
     'schema_version': '1',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\

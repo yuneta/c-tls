@@ -209,18 +209,22 @@ PRIVATE void mt_create(hgobj gobj)
     /*---------------------------*
      *  Create Timeranger
      *---------------------------*/
-    char subpath[NAME_MAX];
-    snprintf(subpath, sizeof(subpath),
-        "%s/%s",
-        gobj_yuno_realm_owner(),
-        gobj_yuno_role_plus_name()
-    );
     char path[PATH_MAX];
-    yuneta_store_dir(path, sizeof(path), "authzs", subpath, TRUE);
-    json_t *kw_tranger = json_pack("{s:s, s:s, s:b}",
+    yuneta_realm_store_dir(
+        path,
+        sizeof(path),
+        "authzs",
+        gobj_yuno_realm_owner(),
+        gobj_yuno_realm_id(),
+        gobj_yuno_role_plus_name(),
+        TRUE
+    );
+
+    json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
         "filename_mask", "%Y",
-        "master", 1
+        "master", 1,
+        "on_critical_error", (int)(LOG_OPT_EXIT_ZERO)
     );
     priv->gobj_tranger = gobj_create_service(
         "tranger_authz",
@@ -236,7 +240,7 @@ PRIVATE void mt_create(hgobj gobj)
     const char *treedb_name = kw_get_str(
         jn_treedb_schema,
         "id",
-        "authzs",
+        "treedb_authzs",
         KW_REQUIRED
     );
     json_t *kw_resource = json_pack("{s:I, s:s, s:o, s:i}",
