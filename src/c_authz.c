@@ -478,6 +478,15 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *-------------------------------------------------*/
     // WARNING "preferred_username" is used in keycloak! In others Oauth???
     username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
+    if(!strchr(username, '@')) {
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return json_pack("{s:i, s:s, s:s}",
+            "result", -1,
+            "comment", "Username must be an email address",
+            "username", username
+        );
+    }
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
