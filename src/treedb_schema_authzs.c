@@ -86,6 +86,7 @@ static char treedb_schema_authzs[]= "\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
+                        'writable',                                 \n\
                         'persistent',                               \n\
                         'required'                                  \n\
                     ]                                               \n\
@@ -96,6 +97,7 @@ static char treedb_schema_authzs[]= "\
                     'type': 'boolean',                              \n\
                     'default': false,                               \n\
                     'flag': [                                       \n\
+                        'writable',                                 \n\
                         'persistent',                               \n\
                         'inherit'                                   \n\
                     ]                                               \n\
@@ -105,6 +107,7 @@ static char treedb_schema_authzs[]= "\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
+                        'writable',                                 \n\
                         'persistent',                               \n\
                         'required'                                  \n\
                     ]                                               \n\
@@ -114,6 +117,7 @@ static char treedb_schema_authzs[]= "\
                     'fillspace': 10,                                \n\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
+                        'writable',                                 \n\
                         'persistent',                               \n\
                         'required'                                  \n\
                     ]                                               \n\
@@ -157,6 +161,7 @@ static char treedb_schema_authzs[]= "\
                     'fillspace': 10,                                \n\
                     'type': 'blob',                                 \n\
                     'flag': [                                       \n\
+                        'writable',                                 \n\
                         'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\

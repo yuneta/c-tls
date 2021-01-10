@@ -414,7 +414,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "username", *username
             );
         }
-        json_t *access_roles = get_user_roles(
+        json_t *services_roles = get_user_roles(
             gobj,
             gobj_yuno_realm_id(),
             username,
@@ -431,7 +431,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "result", 0,
                 "comment", "Ip allowed",
                 "username", username,
-                "access_roles", access_roles
+                "services_roles", services_roles
             );
         }
 
@@ -445,10 +445,10 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "result", 0,
                 "comment", "Ip local allowed",
                 "username", username,
-                "access_roles", access_roles
+                "services_roles", services_roles
             );
         }
-        json_decref(access_roles);
+        json_decref(services_roles);
 
         /*
          *  Reject, Need auth
@@ -561,7 +561,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*------------------------------*
      *      Get user roles
      *------------------------------*/
-    json_t *access_roles = get_user_roles(
+    json_t *services_roles = get_user_roles(
         gobj,
         gobj_yuno_realm_id(),
         username,
@@ -575,7 +575,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         "result", 0,
         "comment", "JWT User authenticated",
         "username", username,
-        "access_roles", access_roles
+        "services_roles", services_roles
     );
 
     JSON_DECREF(user);
@@ -743,7 +743,7 @@ PRIVATE json_t *identify_system_user(
  *
     Hay que responder al frontend:
 
-        "access_roles": {
+        "services_roles": {
             "agent": [
                 "owner",
                 "root"
@@ -760,18 +760,7 @@ PRIVATE json_t *get_user_roles(
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    json_t *jn_dst_service = kw_find_path(
-        kw,
-        "__md_iev__`ievent_gate_stack`0`dst_service",
-        TRUE
-    );
-    const char *dst_service = json_string_value(jn_dst_service);
-    if(empty_string(dst_service)) {
-        return json_object();
-    }
-
-    json_t *access_roles = json_object();
-    json_t *service_roles = kw_get_list(access_roles, dst_service, json_array(), KW_CREATE);
+    json_t *services_roles = json_object();
 
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
@@ -794,13 +783,17 @@ PRIVATE json_t *get_user_roles(
         if(role) {
             BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED);
             if(!disabled) {
-                const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
                 const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
-                if((strcmp(service, dst_service)==0 || strcmp(service, "*")==0) &&
-                (strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)
-                ) {
+                const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
+                if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
+                    json_t *srv_roles = kw_get_list(
+                        services_roles,
+                        service,
+                        json_array(),
+                        KW_CREATE
+                    );
                     json_array_append_new(
-                        service_roles,
+                        srv_roles,
                         json_string(kw_get_str(role, "id", "", KW_REQUIRED))
                     );
                 }
@@ -811,7 +804,7 @@ PRIVATE json_t *get_user_roles(
 
     JSON_DECREF(user);
 
-    return access_roles;
+    return services_roles;
 }
 
 /***************************************************************************
