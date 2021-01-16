@@ -495,13 +495,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         gobj
     );
     if(!user) {
-        JSON_DECREF(jwt_payload);
-        KW_DECREF(kw);
-        return json_pack("{s:i, s:s, s:s}",
+        json_t *jn_msg = json_pack("{s:i, s:s, s:s}",
             "result", -1,
             "comment", "User not authorized",
             "username", username
         );
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return jn_msg;
     }
 
     /*------------------------------------------------*
