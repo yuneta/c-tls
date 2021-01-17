@@ -182,7 +182,13 @@ PRIVATE void mt_create(hgobj gobj)
      *      Oauth
      *---------------------------*/
     #define MY_CACHE_OPTIONS "options=max_entries%3D10"
-    int level = OAUTH2_LOG_WARN;
+
+    int level = 0;
+    if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
+        level = OAUTH2_LOG_TRACE2;
+    } else {
+        level = OAUTH2_LOG_WARN;
+    }
     priv->oath2_sink = oauth2_log_sink_create(
         level,                  // oauth2_log_level_t level,
         oauth2_log_callback,    // oauth2_log_function_t callback,
@@ -193,8 +199,12 @@ PRIVATE void mt_create(hgobj gobj)
     const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
     if(pubkey) {
         const char *rv = oauth2_cfg_token_verify_add_options(
-            priv->oath2_log, &priv->verify, "pubkey", pubkey,
-            "verify.exp=skip&verify.cache." MY_CACHE_OPTIONS);
+            priv->oath2_log,
+            &priv->verify,
+            "pubkey",
+            pubkey,
+            "verify.exp=required&verify.cache=skip&verify.iat.slack_before=300"
+        );
         if(rv != NULL) {
             log_error(0,
                 "gobj",         "%s", gobj_full_name(gobj),
@@ -464,7 +474,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *      HERE with user JWT
      *-------------------------------*/
     json_t *jwt_payload = NULL;
-    if(!oauth2_token_verify(priv->oath2_log, priv->verify, jwt, &jwt_payload)) {
+    if(!oauth2_token_verify(priv->oath2_log, NULL, priv->verify, jwt, &jwt_payload)) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
@@ -665,17 +675,20 @@ PRIVATE void oauth2_log_callback(
         log_fn = log_warning;
         msgset = MSGSET_INFO;
     } else if(level >= OAUTH2_LOG_DEBUG) {
-        log_fn = log_debug;
-        msgset = MSGSET_INFO;
+        log_fn = 0;
     }
 
-    log_fn(0,
-        "gobj",             "%s", gobj_full_name(gobj),
-        "function",         "%s", function,
-        "msgset",           "%s", msgset,
-        "msg",              "%s", msg,
-        NULL
-    );
+    if(log_fn) {
+        log_fn(0,
+            "gobj",             "%s", gobj_full_name(gobj),
+            "function",         "%s", function,
+            "msgset",           "%s", msgset,
+            "msg",              "%s", msg,
+            NULL
+        );
+    } else {
+        trace_msg(msg);
+    }
 }
 
 /***************************************************************************
