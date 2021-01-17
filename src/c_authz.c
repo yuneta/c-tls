@@ -203,7 +203,7 @@ PRIVATE void mt_create(hgobj gobj)
             &priv->verify,
             "pubkey",
             pubkey,
-            "verify.exp=required&verify.cache=skip&verify.iat.slack_before=300"
+            "verify.exp=required&verify.cache=shm&expiry=300&verify.iat.slack_before=300"
         );
         if(rv != NULL) {
             log_error(0,
