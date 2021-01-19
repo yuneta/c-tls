@@ -1109,7 +1109,7 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
 
     json_t *authzs_list = gobj_authzs(gobj_to_check, authz);
 
-    print_json2("TODO =====================>", authzs_list); // TODO
+    //print_json2("TODO =====================>", authzs_list); // TODO
 
     JSON_DECREF(authzs_list);
     KW_DECREF(kw);
