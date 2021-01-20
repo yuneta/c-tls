@@ -28,6 +28,7 @@
             │                           │
             │                  users {} │ ◀─┐N
             │                           │   │
+            │  _geometry                │   │
             └───────────────────────────┘   │
                                             │
                                             │
@@ -38,6 +39,7 @@
             │                 roles [↖] │ ──┘n
             │                           │
             │  properties               │
+            │  _geometry                │
             └───────────────────────────┘
 
 
@@ -47,13 +49,13 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '1',                                          \n\
+    'schema_version': '2',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'topic_name': 'roles',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '1',                                   \n\
+            'topic_version': '2',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'Role',                               \n\
@@ -130,6 +132,14 @@ static char treedb_schema_authzs[]= "\
                     'hook': {                                       \n\
                         'users': 'roles'                            \n\
                     }                                               \n\
+                },                                                  \n\
+                '_geometry': {                                      \n\
+                    'header': 'Geometry',                           \n\
+                    'type': 'blob',                                 \n\
+                    'fillspace': 10,                                \n\
+                    'flag': [                                       \n\
+                        'persistent'                                \n\
+                    ]                                               \n\
                 }                                                   \n\
             }                                                       \n\
         },                                                          \n\
@@ -137,7 +147,7 @@ static char treedb_schema_authzs[]= "\
             'topic_name': 'users',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '1',                                   \n\
+            'topic_version': '2',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -170,6 +180,14 @@ static char treedb_schema_authzs[]= "\
                     'fillspace': 10,                                \n\
                     'type': 'dict',                                 \n\
                     'flag': [                                       \n\
+                    ]                                               \n\
+                },                                                  \n\
+                '_geometry': {                                      \n\
+                    'header': 'Geometry',                           \n\
+                    'type': 'blob',                                 \n\
+                    'fillspace': 10,                                \n\
+                    'flag': [                                       \n\
+                        'persistent'                                \n\
                     ]                                               \n\
                 }                                                   \n\
             }                                                       \n\
