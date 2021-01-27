@@ -529,13 +529,13 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*--------------------------------------------*
      *  Get sessions, check max sessions allowed
      *--------------------------------------------*/
-    json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+    json_t *sessions = kw_get_dict(user, "__sessions", 0, KW_REQUIRED);
     if(!sessions) {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "_sessions NULL",
+            "msg",          "%s", "__sessions NULL",
             NULL
         );
     }
@@ -943,7 +943,7 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
                 NULL
             );
         } else {
-            json_t *sessions = kw_get_dict(user, "_sessions", 0, KW_REQUIRED);
+            json_t *sessions = kw_get_dict(user, "__sessions", 0, KW_REQUIRED);
             json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
             JSON_DECREF(session);
 

@@ -39,6 +39,7 @@
             │                 roles [↖] │ ──┘n
             │                           │
             │  properties               │
+            │  __sessions               │
             │  _geometry                │
             └───────────────────────────┘
 
@@ -49,7 +50,7 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '2',                                          \n\
+    'schema_version': '3',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'topic_name': 'roles',                                  \n\
@@ -147,7 +148,7 @@ static char treedb_schema_authzs[]= "\
             'topic_name': 'users',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '2',                                   \n\
+            'topic_version': '3',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -175,7 +176,7 @@ static char treedb_schema_authzs[]= "\
                         'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\
-                '_sessions': {                                      \n\
+                '__sessions': {                                     \n\
                     'header': 'Sessions',                           \n\
                     'fillspace': 10,                                \n\
                     'type': 'dict',                                 \n\
