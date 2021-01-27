@@ -501,7 +501,9 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", username),
-        0,
+        json_pack("{s:b}",
+            "with-metadata", 1
+        ),
         gobj
     );
     if(!user) {
@@ -707,7 +709,9 @@ PRIVATE json_t *identify_system_user(
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", *username),
-        0,
+        json_pack("{s:b}",
+            "with-metadata", 1
+        ),
         gobj
     );
     if(user) {
@@ -729,7 +733,9 @@ PRIVATE json_t *identify_system_user(
                     priv->gobj_treedb,
                     "users",
                     json_pack("{s:s}", "id", gr->gr_name),
-                    0,
+                    json_pack("{s:b}",
+                        "with-metadata", 1
+                    ),
                     gobj
                 );
                 if(user) {
@@ -789,7 +795,10 @@ PRIVATE json_t *get_user_roles(
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", username),
-        json_pack("{s:b}", "list-dict", 1),
+        json_pack("{s:b, s:b}",
+            "list-dict", 1,
+            "with-metadata", 1
+        ),
         gobj
     );
     json_t *jn_roles = kw_get_list(user, "roles", 0, KW_REQUIRED);
@@ -930,7 +939,9 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
             priv->gobj_treedb,
             "users",
             json_pack("{s:s}", "id", username),
-            0,
+            json_pack("{s:b}",
+                "with-metadata", 1
+            ),
             gobj
         );
         if(!user) {
