@@ -796,7 +796,7 @@ PRIVATE json_t *get_user_roles(
         "users",
         json_pack("{s:s}", "id", username),
         json_pack("{s:b, s:b}",
-            "list-dict", 1,
+            "list_dict", 1,
             "with-metadata", 1
         ),
         gobj
@@ -809,7 +809,7 @@ PRIVATE json_t *get_user_roles(
             priv->gobj_treedb,
             kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
             json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
-            json_pack("{s:b}", "list-dict", 1),
+            json_pack("{s:b}", "list_dict", 1),
             gobj
         );
         if(role) {
