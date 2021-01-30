@@ -38,6 +38,7 @@
             │                           │   │
             │                 roles [↖] │ ──┘n
             │                           │
+            │= disabled                 │
             │  properties               │
             │  __sessions               │
             │  _geometry                │
@@ -50,7 +51,7 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '3',                                          \n\
+    'schema_version': '4',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'topic_name': 'roles',                                  \n\
@@ -148,7 +149,7 @@ static char treedb_schema_authzs[]= "\
             'topic_name': 'users',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '3',                                   \n\
+            'topic_version': '4',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -165,6 +166,17 @@ static char treedb_schema_authzs[]= "\
                     'type': 'array',                                \n\
                     'flag': [                                       \n\
                         'fkey'                                      \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'disabled': {                                       \n\
+                    'header': 'Disabled',                           \n\
+                    'fillspace': 4,                                 \n\
+                    'type': 'boolean',                              \n\
+                    'default': false,                               \n\
+                    'flag': [                                       \n\
+                        'writable',                                 \n\
+                        'persistent',                               \n\
+                        'inherit'                                   \n\
                     ]                                               \n\
                 },                                                  \n\
                 'properties': {                                     \n\
