@@ -531,7 +531,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         "users",
         json_pack("{s:s}", "id", username),
         json_pack("{s:b}",
-            "with-metadata", 1
+            "with_metadata", 1
         ),
         gobj
     );
@@ -756,7 +756,7 @@ PRIVATE json_t *identify_system_user(
         "users",
         json_pack("{s:s}", "id", *username),
         json_pack("{s:b}",
-            "with-metadata", 1
+            "with_metadata", 1
         ),
         gobj
     );
@@ -780,7 +780,7 @@ PRIVATE json_t *identify_system_user(
                     "users",
                     json_pack("{s:s}", "id", gr->gr_name),
                     json_pack("{s:b}",
-                        "with-metadata", 1
+                        "with_metadata", 1
                     ),
                     gobj
                 );
@@ -844,7 +844,7 @@ PRIVATE json_t *get_user_roles(
         json_pack("{s:s}", "id", username),
         json_pack("{s:b, s:b}",
             "list_dict", 1,
-            "with-metadata", 1
+            "with_metadata", 1
         ),
         gobj
     );
@@ -989,7 +989,7 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
             "users",
             json_pack("{s:s}", "id", username),
             json_pack("{s:b}",
-                "with-metadata", 1
+                "with_metadata", 1
             ),
             gobj
         );
