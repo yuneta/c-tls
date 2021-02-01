@@ -51,6 +51,7 @@ PRIVATE json_t *identify_system_user(
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
     const char *dst_realm_id,
+    const char *dst_service,
     const char *username,
     json_t *kw  // not owned
 );
@@ -397,11 +398,28 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     const char *jwt= kw_get_str(kw, "jwt", "", 0);
     const char *username = "";
 
+    /*-----------------------------*
+     *  Get destination service
+     *-----------------------------*/
+    const char *dst_service = kw_get_str(
+        kw,
+        "__md_iev__`ievent_gate_stack`0`dst_service",
+        "",
+        KW_REQUIRED
+    );
+    if(!gobj_find_service(dst_service, FALSE)) {
+        KW_DECREF(kw);
+        return json_pack("{s:i, s:s, s:s}",
+            "result", -1,
+            "comment", "Destination service not found",
+            "service", dst_service
+        );
+    }
+
     if(empty_string(jwt)) {
         /*-------------------------------*
          *  Without JWT, check local
          *-------------------------------*/
-
         if(is_ip_denied(peername)) {
             /*
              *  IP autorizada sin user/passw, informa
@@ -424,49 +442,60 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
                 "username", *username
             );
         }
+        json_decref(user);
+
+        char *comment = "";
+        do {
+            if(is_ip_allowed(peername)) {
+                /*
+                 *  IP autorizada sin user/passw, usa logged user
+                 */
+                comment = "Registered Ip allowed";
+                break;
+            }
+
+            const char *localhost = "127.0.0.";
+            if(strncmp(peername, localhost, strlen(localhost))!=0) {
+                /*
+                 *  Only localhost is allowed without jwt
+                 */
+                KW_DECREF(kw);
+                return json_pack("{s:i, s:s}",
+                    "result", -1,
+                    "comment", "Without JWT only localhost is allowed"
+                );
+            }
+            comment = "Local Ip allowed";
+        } while(0);
+
         json_t *services_roles = get_user_roles(
             gobj,
             gobj_yuno_realm_id(),
+            dst_service,
             username,
             kw
         );
-        JSON_DECREF(user);
 
-        if(is_ip_allowed(peername)) {
-            /*
-             *  IP autorizada sin user/passw, usa logged user
-             */
+        if(!kw_has_key(services_roles, dst_service)) {
             KW_DECREF(kw);
-            return json_pack("{s:i, s:s, s:s, s:o}",
-                "result", 0,
-                "comment", "Ip allowed",
-                "username", username,
-                "services_roles", services_roles
+            return json_pack("{s:i, s:s, s:s, s:s}",
+                "result", -1,
+                "comment", "Username has not authz in service",
+                "dst_service", dst_service,
+                "username", username
             );
         }
-
-        const char *localhost = "127.0.0.";
-        if(strncmp(peername, localhost, strlen(localhost))==0) {
-            /*
-             *  LOCALHOST Autorizado, informa
-             */
-            KW_DECREF(kw);
-            return json_pack("{s:i, s:s, s:s, s:o}",
-                "result", 0,
-                "comment", "Ip local allowed",
-                "username", username,
-                "services_roles", services_roles
-            );
-        }
-        json_decref(services_roles);
 
         /*
-         *  Reject, Need auth
+         *  Autorizado
          */
         KW_DECREF(kw);
-        return json_pack("{s:i, s:s}",
-            "result", -1,
-            "comment", "JWT is needed to authenticate"
+        return json_pack("{s:i, s:s, s:s, s:s, s:o}",
+            "result", 0,
+            "comment", comment,
+            "username", username,
+            "dst_service", dst_service,
+            "services_roles", services_roles
         );
     }
 
@@ -564,6 +593,32 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         json_object_del(sessions, k);
     }
 
+    /*------------------------------*
+     *      Get user roles
+     *------------------------------*/
+    json_t *services_roles = get_user_roles(
+        gobj,
+        gobj_yuno_realm_id(),
+        dst_service,
+        username,
+        kw
+    );
+    if(!kw_has_key(services_roles, dst_service)) {
+        /*
+         *  No Autorizado
+         */
+        json_decref(services_roles);
+        JSON_DECREF(user);
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return json_pack("{s:i, s:s, s:s, s:s}",
+            "result", -1,
+            "comment", "Username has not authz in service",
+            "dst_service", dst_service,
+            "username", username
+        );
+    }
+
     /*-------------------------------*
      *      Save session
      *  WARNING "session_state" is from keycloak!!!
@@ -580,23 +635,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *------------------------------------*/
     gobj_subscribe_event(src, "EV_ON_CLOSE", 0, gobj);
 
-    /*------------------------------*
-     *      Get user roles
-     *------------------------------*/
-    json_t *services_roles = get_user_roles(
-        gobj,
-        gobj_yuno_realm_id(),
-        username,
-        kw
-    );
-
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
-    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:o}",
+    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:s, s:o}",
         "result", 0,
         "comment", "JWT User authenticated",
         "username", username,
+        "dst_service", dst_service,
         "services_roles", services_roles
     );
 
@@ -783,6 +829,7 @@ PRIVATE json_t *identify_system_user(
 PRIVATE json_t *get_user_roles(
     hgobj gobj,
     const char *dst_realm_id,
+    const char *dst_service,
     const char *username,
     json_t *kw // not owned
 )
@@ -818,16 +865,18 @@ PRIVATE json_t *get_user_roles(
                 const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
                 const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
                 if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
-                    json_t *srv_roles = kw_get_list(
-                        services_roles,
-                        service,
-                        json_array(),
-                        KW_CREATE
-                    );
-                    json_array_append_new(
-                        srv_roles,
-                        json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                    );
+                    if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0) {
+                        json_t *srv_roles = kw_get_list(
+                            services_roles,
+                            dst_service,
+                            json_array(),
+                            KW_CREATE
+                        );
+                        json_array_append_new(
+                            srv_roles,
+                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                        );
+                    }
                 }
             }
             JSON_DECREF(role);
