@@ -872,6 +872,7 @@ PRIVATE json_t *get_user_roles(
                             json_array(),
                             KW_CREATE
                         );
+                        // TODO añade los roles hijos de role
                         json_array_append_new(
                             srv_roles,
                             json_string(kw_get_str(role, "id", "", KW_REQUIRED))
