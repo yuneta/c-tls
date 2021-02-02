@@ -816,6 +816,80 @@ PRIVATE json_t *identify_system_user(
 
 /***************************************************************************
  *
+ ***************************************************************************/
+PRIVATE json_t *collect_tree_roles(
+    hgobj gobj,
+    json_t *services_roles, // not owned
+    json_t *required_services,
+    json_t *jn_roles,       // not owned
+    const char *dst_realm_id,
+    const char *dst_service
+)
+{
+
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    int idx; json_t *role_id;
+    json_array_foreach(jn_roles, idx, role_id) {
+        json_t *role = gobj_get_node(
+            priv->gobj_treedb,
+            kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
+            json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
+            json_pack("{s:b}", "list_dict", 1),
+            gobj
+        );
+        if(role) {
+            BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER);
+            if(!disabled) {
+                const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
+                const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
+                if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
+                    if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0
+                    ) {
+                        json_t *srv_roles = kw_get_list(
+                            services_roles,
+                            dst_service,
+                            json_array(),
+                            KW_CREATE
+                        );
+                        json_array_append_new(
+                            srv_roles,
+                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                        );
+                    }
+                }
+                if(json_str_in_list(required_services, service, FALSE)) {
+                    json_t *srv_roles = kw_get_list(
+                        services_roles,
+                        service,
+                        json_array(),
+                        KW_CREATE
+                    );
+                    json_array_append_new(
+                        srv_roles,
+                        json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                    );
+                }
+            }
+            json_t *roles = kw_get_list(role, "roles", 0, KW_REQUIRED);
+            collect_tree_roles(
+                gobj,
+                services_roles,
+                required_services,
+                roles,
+                dst_realm_id,
+                dst_service
+            );
+
+            JSON_DECREF(role);
+        }
+    }
+
+    return services_roles;
+}
+
+/***************************************************************************
+ *
     Hay que responder al frontend:
 
         "services_roles": {
@@ -842,47 +916,30 @@ PRIVATE json_t *get_user_roles(
         priv->gobj_treedb,
         "users",
         json_pack("{s:s}", "id", username),
-        json_pack("{s:b, s:b}",
+        json_pack("{s:b}",
             "list_dict", 1,
             "with_metadata", 1
         ),
         gobj
     );
-    json_t *jn_roles = kw_get_list(user, "roles", 0, KW_REQUIRED);
-
-    int idx; json_t *role_id;
-    json_array_foreach(jn_roles, idx, role_id) {
-        json_t *role = gobj_get_node(
-            priv->gobj_treedb,
-            kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
-            json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
-            json_pack("{s:b}", "list_dict", 1),
-            gobj
-        );
-        if(role) {
-            BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED);
-            if(!disabled) {
-                const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
-                const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
-                if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
-                    if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0) {
-                        json_t *srv_roles = kw_get_list(
-                            services_roles,
-                            dst_service,
-                            json_array(),
-                            KW_CREATE
-                        );
-                        // TODO añade los roles hijos de role
-                        json_array_append_new(
-                            srv_roles,
-                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                        );
-                    }
-                }
-            }
-            JSON_DECREF(role);
-        }
+    if(!user) {
+        return services_roles;
     }
+    if(kw_get_bool(user, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER)) {
+        return services_roles;
+    }
+
+    json_t *required_services = kw_get_list(kw, "required_services", 0, 0);
+
+    json_t *jn_roles = kw_get_list(user, "roles", 0, KW_REQUIRED);
+    collect_tree_roles(
+        gobj,
+        services_roles,
+        required_services,
+        jn_roles,
+        dst_realm_id,
+        dst_service
+    );
 
     JSON_DECREF(user);
 
