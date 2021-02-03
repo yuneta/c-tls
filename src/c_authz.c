@@ -858,17 +858,19 @@ PRIVATE json_t *collect_tree_roles(
                         );
                     }
                 }
-                if(json_str_in_list(required_services, service, FALSE)) {
-                    json_t *srv_roles = kw_get_list(
-                        services_roles,
-                        service,
-                        json_array(),
-                        KW_CREATE
-                    );
-                    json_array_append_new(
-                        srv_roles,
-                        json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                    );
+                if(required_services) {
+                    if(json_str_in_list(required_services, service, FALSE)) {
+                        json_t *srv_roles = kw_get_list(
+                            services_roles,
+                            service,
+                            json_array(),
+                            KW_CREATE
+                        );
+                        json_array_append_new(
+                            srv_roles,
+                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                        );
+                    }
                 }
             }
             json_t *roles = kw_get_list(role, "roles", 0, KW_REQUIRED);
