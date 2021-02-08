@@ -56,14 +56,6 @@ PRIVATE json_t *get_user_roles(
     json_t *kw  // not owned
 );
 
-PRIVATE json_t *get_user_authzs(
-    hgobj gobj,
-    const char *dst_realm_id,
-    const char *dst_service,
-    const char *username,
-    json_t *kw  // not owned
-);
-
 /***************************************************************************
  *              Resources
  ***************************************************************************/
@@ -145,17 +137,6 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
 /*---------------------------------------------*
  *      GClass authz levels
  *---------------------------------------------*/
-PRIVATE sdata_desc_t pm_authz_sample[] = {
-/*-PM-----type--------------name----------------flag------------description---------- */
-SDATAPM0 (ASN_OCTET_STR,    "param sample",     0,              "Param ..."),
-SDATA_END()
-};
-
-PRIVATE sdata_desc_t authz_table[] = {
-/*-AUTHZ-- type---------name------------flag----alias---items---------------description--*/
-SDATAAUTHZ (ASN_SCHEMA, "sample",       0,      0,      pm_authz_sample,    "Permission to ..."),
-SDATA_END()
-};
 
 /*---------------------------------------------*
  *              Private data
@@ -1059,34 +1040,33 @@ PRIVATE json_t *get_user_roles(
  ***************************************************************************/
 PRIVATE json_t *append_permission(
     hgobj gobj,
-    json_t *services_authzs, // not owned
-    json_t *authz,       // not owned
+    json_t *services_roles, // not owned
+    json_t *role,       // not owned
     const char *dst_realm_id,
     const char *dst_service
 )
 {
-    BOOL disabled = kw_get_bool(authz, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER);
+    BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER);
     if(!disabled) {
-        const char *service = kw_get_str(authz, "service", "", KW_REQUIRED);
-        const char *realm_id = kw_get_str(authz, "realm_id", "", KW_REQUIRED);
+        const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
+        const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
         if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
             if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0
             ) {
-                json_t *srv_authzs = kw_get_list(
-                    services_authzs,
-                    dst_service,
-                    json_array(),
-                    KW_CREATE
-                );
-                json_array_append_new(
-                    srv_authzs,
-                    json_string(kw_get_str(authz, "id", "", KW_REQUIRED))
-                );
+                const char *permission = kw_get_str(role, "permission", "", KW_REQUIRED);
+                BOOL deny = kw_get_bool(role, "deny", false, KW_REQUIRED);
+                if(!empty_string(permission)) {
+                    json_object_set_new(
+                        services_roles,
+                        permission,
+                        deny?json_false():json_true()
+                    );
+                }
             }
         }
     }
 
-    return services_authzs;
+    return services_roles;
 }
 
 /***************************************************************************
@@ -1095,7 +1075,7 @@ PRIVATE json_t *append_permission(
 
 
  ***************************************************************************/
-PRIVATE json_t *get_user_authzs(
+PRIVATE json_t *get_user_permissions(
     hgobj gobj,
     const char *dst_realm_id,
     const char *dst_service,
@@ -1143,7 +1123,7 @@ PRIVATE json_t *get_user_authzs(
             continue;
         }
 
-        append_role(
+        append_permission(
             gobj,
             services_roles,
             role,
@@ -1184,7 +1164,7 @@ PRIVATE json_t *get_user_authzs(
         json_t *child;
         int idx3;
         json_array_foreach(tree_roles, idx3, child) {
-            append_role(
+            append_permission(
                 gobj,
                 services_roles,
                 child,
@@ -1195,7 +1175,7 @@ PRIVATE json_t *get_user_authzs(
             json_array_foreach(required_services, idx4, required_service) {
                 const char *service = json_string_value(required_service);
                 if(service) {
-                    append_role(
+                    append_permission(
                         gobj,
                         services_roles,
                         child,
@@ -1463,7 +1443,7 @@ PRIVATE GCLASS _gclass = {
     lmt,
     tattr_desc,
     sizeof(PRIVATE_DATA),
-    authz_table,
+    0,  // acl
     s_user_trace_level,
     command_table,  // command_table
     0,  // gcflag
@@ -1509,17 +1489,17 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
             NULL
         );
         KW_DECREF(kw);
-        return TRUE; // TODO return FALSE;
+        return FALSE;
     }
 
     json_t *jn_authz_desc = gobj_authz(gobj_to_check, authz);
-    if(jn_authz_desc) {
+    if(!jn_authz_desc) {
         // Error already logged
         KW_DECREF(kw);
-        return TRUE; // TODO return FALSE;
+        return FALSE;
     }
 
-    json_t *user_authzs = get_user_authzs(
+    json_t *user_authzs = get_user_permissions(
         gobj,
         gobj_yuno_realm_id(),       // dst_realm_id
         gobj_name(gobj_to_check),   // dst_service
@@ -1527,14 +1507,27 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
         kw // not owned
     );
 
-    print_json2("=====>", jn_authz_desc);
-    print_json2("=====>", user_authzs);
-    print_json(kw);
+    BOOL allow = FALSE;
+    const char *authz_; json_t *jn_allow;
+    json_object_foreach(user_authzs, authz_, jn_allow) {
+        if(strcmp(authz_, "*")==0 || strcmp(authz_, authz)==0) {
+            allow = json_boolean_value(jn_allow)?1:0;
+            break;
+        }
+    }
+
+    if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
+        log_debug_json(0, user_authzs, "user '%s', authz '%s', allow -> %s",
+            __username__,
+            authz,
+            allow?"YES":"NO"
+        );
+    }
 
     JSON_DECREF(user_authzs);
     JSON_DECREF(jn_authz_desc);
     KW_DECREF(kw);
-    return TRUE;
+    return allow;
 }
 
 /***************************************************************************
