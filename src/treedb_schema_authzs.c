@@ -24,6 +24,7 @@
             │= disabled                 │
             │* realm_id                 │
             │* service                  │
+            │* permission               │
             │                           │
             │                           │
             │                  users {} │ ◀─┐N
@@ -40,6 +41,7 @@
             │                           │
             │= disabled                 │
             │  properties               │
+            │                           │
             │  __sessions               │
             │  _geometry                │
             └───────────────────────────┘
@@ -51,13 +53,13 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '4',                                          \n\
+    'schema_version': '1',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'topic_name': 'roles',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '2',                                   \n\
+            'topic_version': '1',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'Role',                               \n\
@@ -126,6 +128,25 @@ static char treedb_schema_authzs[]= "\
                         'required'                                  \n\
                     ]                                               \n\
                 },                                                  \n\
+                'permission': {                                     \n\
+                    'header': 'Permission',                         \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'string',                               \n\
+                    'flag': [                                       \n\
+                        'writable',                                 \n\
+                        'persistent',                               \n\
+                        'required'                                  \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'parameters': {                                     \n\
+                    'header': 'Parameters',                         \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'dict',                                 \n\
+                    'flag': [                                       \n\
+                        'writable',                                 \n\
+                        'persistent'                                \n\
+                    ]                                               \n\
+                },                                                  \n\
                 'users': {                                          \n\
                     'header': 'Users',                              \n\
                     'fillspace': 10,                                \n\
@@ -149,7 +170,7 @@ static char treedb_schema_authzs[]= "\
             'topic_name': 'users',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '4',                                   \n\
+            'topic_version': '1',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -182,7 +203,7 @@ static char treedb_schema_authzs[]= "\
                 'properties': {                                     \n\
                     'header': 'Properties',                         \n\
                     'fillspace': 10,                                \n\
-                    'type': 'blob',                                 \n\
+                    'type': 'dict',                                 \n\
                     'flag': [                                       \n\
                         'writable',                                 \n\
                         'persistent'                                \n\

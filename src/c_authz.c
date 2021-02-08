@@ -56,6 +56,14 @@ PRIVATE json_t *get_user_roles(
     json_t *kw  // not owned
 );
 
+PRIVATE json_t *get_user_authzs(
+    hgobj gobj,
+    const char *dst_realm_id,
+    const char *dst_service,
+    const char *username,
+    json_t *kw  // not owned
+);
+
 /***************************************************************************
  *              Resources
  ***************************************************************************/
@@ -70,6 +78,8 @@ PRIVATE topic_desc_t db_messages_desc[] = {
  ***************************************************************************/
 PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 
 PRIVATE sdata_desc_t pm_help[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
@@ -82,6 +92,16 @@ PRIVATE sdata_desc_t pm_authzs[] = {
 SDATAPM (ASN_OCTET_STR, "authz",        0,              0,          "authz about you want help"),
 SDATA_END()
 };
+PRIVATE sdata_desc_t pm_user_roles[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_user_authzs[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
+SDATA_END()
+};
 
 PRIVATE const char *a_help[] = {"h", "?", 0};
 
@@ -89,6 +109,8 @@ PRIVATE sdata_desc_t command_table[] = {
 /*-CMD---type-----------name----------------alias---------------items-----------json_fn---------description---------- */
 SDATACM (ASN_SCHEMA,    "help",             a_help,             pm_help,        cmd_help,       "Command's help"),
 SDATACM (ASN_SCHEMA,    "authzs",           0,                  pm_authzs,      cmd_authzs,     "Authorization's help"),
+SDATACM (ASN_SCHEMA,    "user-roles",       0,                  pm_user_roles,  cmd_user_roles,     "Get roles of user"),
+SDATACM (ASN_SCHEMA,    "user-authzs",      0,                  pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
 SDATA_END()
 };
 
@@ -438,7 +460,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
             KW_DECREF(kw);
             return json_pack("{s:i, s:s, s:s}",
                 "result", -1,
-                "comment", "System user not found",
+                "comment", "System user not found or not authorized",
                 "username", *username
             );
         }
@@ -529,7 +551,10 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
-        json_pack("{s:s}", "id", username),
+        json_pack("{s:s, s:b}",
+            "id", username,
+            "disabled", 0
+        ),
         json_pack("{s:b}",
             "with_metadata", 1
         ),
@@ -688,6 +713,48 @@ PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
     return gobj_build_authzs_doc(gobj, cmd, kw, src);
 }
 
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    const char *username = kw_get_str(kw, "username", "", 0);
+
+    if(empty_string(username)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_local_sprintf("What username?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    return gobj_build_authzs_doc(gobj, cmd, kw, src);
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    const char *username = kw_get_str(kw, "username", "", 0);
+
+    if(empty_string(username)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_local_sprintf("What username?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    return gobj_build_authzs_doc(gobj, cmd, kw, src);
+}
+
 
 
 
@@ -754,7 +821,10 @@ PRIVATE json_t *identify_system_user(
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
-        json_pack("{s:s}", "id", *username),
+        json_pack("{s:s, s:b}",
+            "id", *username,
+            "disabled", 0
+        ),
         json_pack("{s:b}",
             "with_metadata", 1
         ),
@@ -817,73 +887,32 @@ PRIVATE json_t *identify_system_user(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE json_t *collect_tree_roles(
+PRIVATE json_t *append_role(
     hgobj gobj,
     json_t *services_roles, // not owned
-    json_t *required_services,
-    json_t *jn_roles,       // not owned
+    json_t *role,       // not owned
     const char *dst_realm_id,
     const char *dst_service
 )
 {
-
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    int idx; json_t *role_id;
-    json_array_foreach(jn_roles, idx, role_id) {
-        json_t *role = gobj_get_node(
-            priv->gobj_treedb,
-            kw_get_str(role_id, "topic_name", "", KW_REQUIRED),
-            json_pack("{s:s}", "id", kw_get_str(role_id, "id", "", KW_REQUIRED)),
-            json_pack("{s:b}", "list_dict", 1),
-            gobj
-        );
-        if(role) {
-            BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER);
-            if(!disabled) {
-                const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
-                const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
-                if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
-                    if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0
-                    ) {
-                        json_t *srv_roles = kw_get_list(
-                            services_roles,
-                            dst_service,
-                            json_array(),
-                            KW_CREATE
-                        );
-                        json_array_append_new(
-                            srv_roles,
-                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                        );
-                    }
-                }
-                if(required_services) {
-                    if(json_str_in_list(required_services, service, FALSE)) {
-                        json_t *srv_roles = kw_get_list(
-                            services_roles,
-                            service,
-                            json_array(),
-                            KW_CREATE
-                        );
-                        json_array_append_new(
-                            srv_roles,
-                            json_string(kw_get_str(role, "id", "", KW_REQUIRED))
-                        );
-                    }
-                }
+    BOOL disabled = kw_get_bool(role, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER);
+    if(!disabled) {
+        const char *service = kw_get_str(role, "service", "", KW_REQUIRED);
+        const char *realm_id = kw_get_str(role, "realm_id", "", KW_REQUIRED);
+        if((strcmp(realm_id, dst_realm_id)==0 || strcmp(realm_id, "*")==0)) {
+            if(strcmp(service, dst_service)==0 || strcmp(service, "*")==0
+            ) {
+                json_t *srv_roles = kw_get_list(
+                    services_roles,
+                    dst_service,
+                    json_array(),
+                    KW_CREATE
+                );
+                json_array_append_new(
+                    srv_roles,
+                    json_string(kw_get_str(role, "id", "", KW_REQUIRED))
+                );
             }
-            json_t *roles = kw_get_list(role, "roles", 0, KW_REQUIRED);
-            collect_tree_roles(
-                gobj,
-                services_roles,
-                required_services,
-                roles,
-                dst_realm_id,
-                dst_service
-            );
-
-            JSON_DECREF(role);
         }
     }
 
@@ -914,6 +943,129 @@ PRIVATE json_t *get_user_roles(
 
     json_t *services_roles = json_object();
 
+    json_t *roles_refs = gobj_node_parents(
+        priv->gobj_treedb,
+        "users", // topic_name
+        json_pack("{s:s}",
+            "id", username
+        ),
+        "roles", // link
+        json_pack("{s:b}",
+            "list_dict", 1,
+            "with_metadata", 1
+        ),
+        gobj
+    );
+    if(!roles_refs) {
+        return services_roles;
+    }
+
+    json_t *required_services = kw_get_list(kw, "required_services", 0, 0);
+
+    int idx; json_t *role_ref;
+    json_array_foreach(roles_refs, idx, role_ref) {
+        json_t *role = gobj_get_node(
+            priv->gobj_treedb,
+            "roles", // topic_name
+            json_incref(role_ref),
+            json_pack("{s:b}",
+                "list_dict", 1,
+                "with_metadata", 1
+            ),
+            gobj
+        );
+        if(kw_get_bool(role, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER)) {
+            json_decref(role);
+            continue;
+        }
+
+        append_role(
+            gobj,
+            services_roles,
+            role,
+            dst_realm_id,
+            dst_service
+        );
+
+        int idx2; json_t *required_service;
+        json_array_foreach(required_services, idx2, required_service) {
+            const char *service = json_string_value(required_service);
+            if(service) {
+                append_role(
+                    gobj,
+                    services_roles,
+                    role,
+                    dst_realm_id,
+                    service
+                );
+            }
+        }
+
+        json_t *tree_roles = gobj_node_childs(
+            priv->gobj_treedb,
+            "roles", // topic_name
+            json_incref(role),    // 'id' and topic_pkey2s fields are used to find the node
+            "roles",
+            json_pack("{s:b}", // filter to childs tree
+                "disabled", 0
+            ),
+            json_pack("{s:b}",
+                "list_dict", 1,
+                "with_metadata", 1
+            ),
+            gobj
+        );
+        json_decref(role);
+
+        json_t *child;
+        int idx3;
+        json_array_foreach(tree_roles, idx3, child) {
+            append_role(
+                gobj,
+                services_roles,
+                child,
+                dst_realm_id,
+                dst_service
+            );
+            int idx4;
+            json_array_foreach(required_services, idx4, required_service) {
+                const char *service = json_string_value(required_service);
+                if(service) {
+                    append_role(
+                        gobj,
+                        services_roles,
+                        child,
+                        dst_realm_id,
+                        service
+                    );
+                }
+            }
+        }
+        json_decref(tree_roles);
+    }
+    json_decref(roles_refs);
+
+    return services_roles;
+}
+
+/***************************************************************************
+ *
+    Hay que responder al frontend:
+
+
+ ***************************************************************************/
+PRIVATE json_t *get_user_authzs(
+    hgobj gobj,
+    const char *dst_realm_id,
+    const char *dst_service,
+    const char *username,
+    json_t *kw // not owned
+)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    json_t *services_authzs = json_object();
+
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
@@ -925,27 +1077,15 @@ PRIVATE json_t *get_user_roles(
         gobj
     );
     if(!user) {
-        return services_roles;
+        return services_authzs;
     }
     if(kw_get_bool(user, "disabled", 0, KW_REQUIRED|KW_WILD_NUMBER)) {
-        return services_roles;
+        JSON_DECREF(user);
+        return services_authzs;
     }
 
-    json_t *required_services = kw_get_list(kw, "required_services", 0, 0);
-
-    json_t *jn_roles = kw_get_list(user, "roles", 0, KW_REQUIRED);
-    collect_tree_roles(
-        gobj,
-        services_roles,
-        required_services,
-        jn_roles,
-        dst_realm_id,
-        dst_service
-    );
-
-    JSON_DECREF(user);
-
-    return services_roles;
+    // TODO
+    return services_authzs;
 }
 
 /***************************************************************************
@@ -1222,16 +1362,52 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
     if(!gobj) {
         /*
          *  HACK if this function is called is because the authz system is configured in setup.
-         *  If the service is not found deny all.
+         *  If the service is not found then deny all.
          */
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "No gclass authz found",
+            NULL
+        );
+        KW_DECREF(kw);
         return FALSE;
     }
+    const char *__username__ = gobj_read_str_attr(src, "__username__");
+    if(empty_string(__username__)) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "No __username__ in src",
+            "src",          "%s", gobj_full_name(src),
+            NULL
+        );
+        KW_DECREF(kw);
+        return TRUE; // TODO return FALSE;
+    }
 
-    json_t *authzs_list = gobj_authzs(gobj_to_check, authz);
+    json_t *jn_authz_desc = gobj_authz(gobj_to_check, authz);
+    if(jn_authz_desc) {
+        // Error already logged
+        KW_DECREF(kw);
+        return TRUE; // TODO return FALSE;
+    }
 
-    //print_json2("TODO =====================>", authzs_list); // TODO
+    json_t *user_authzs = get_user_authzs(
+        gobj,
+        gobj_yuno_realm_id(),       // dst_realm_id
+        gobj_name(gobj_to_check),   // dst_service
+        __username__,
+        kw // not owned
+    );
 
-    JSON_DECREF(authzs_list);
+    print_json2("=====>", jn_authz_desc);
+    print_json2("=====>", user_authzs);
+    print_json(kw);
+
+    JSON_DECREF(jn_authz_desc);
     KW_DECREF(kw);
     return TRUE;
 }
