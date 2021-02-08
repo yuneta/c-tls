@@ -1478,18 +1478,22 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
         KW_DECREF(kw);
         return FALSE;
     }
-    const char *__username__ = gobj_read_str_attr(src, "__username__");
-    if(empty_string(__username__)) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "No __username__ in src",
-            "src",          "%s", gobj_full_name(src),
-            NULL
-        );
-        KW_DECREF(kw);
-        return FALSE;
+
+    const char *__username__ = kw_get_str(kw, "__temp__`__username__", 0, 0);
+    if(!__username__) {
+        __username__ = gobj_read_str_attr(src, "__username__");
+        if(empty_string(__username__)) {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+                "msg",          "%s", "No __username__ in src",
+                "src",          "%s", gobj_full_name(src),
+                NULL
+            );
+            KW_DECREF(kw);
+            return FALSE;
+        }
     }
 
     json_t *jn_authz_desc = gobj_authz(gobj_to_check, authz);
