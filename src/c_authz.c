@@ -246,7 +246,6 @@ PRIVATE void mt_create(hgobj gobj)
         kw_tranger,
         gobj
     );
-    priv->tranger = gobj_read_pointer_attr(priv->gobj_tranger, "tranger");
 
     /*----------------------*
      *  Create Treedb
@@ -257,8 +256,7 @@ PRIVATE void mt_create(hgobj gobj)
         "treedb_authzs",
         KW_REQUIRED
     );
-    json_t *kw_resource = json_pack("{s:I, s:s, s:o, s:i}",
-        "tranger", (json_int_t)(size_t)priv->tranger,
+    json_t *kw_resource = json_pack("{s:s, s:o, s:i}",
         "treedb_name", treedb_name,
         "treedb_schema", jn_treedb_schema,
         "exit_on_error", LOG_OPT_EXIT_ZERO
@@ -270,6 +268,7 @@ PRIVATE void mt_create(hgobj gobj)
         kw_resource,
         gobj
     );
+    gobj_set_bottom_gobj(priv->gobj_treedb, priv->gobj_tranger);
 
     /*
      *  SERVICE subscription model
@@ -319,10 +318,8 @@ PRIVATE int mt_start(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     gobj_start(priv->gobj_tranger);
-    priv->tranger = gobj_read_pointer_attr(priv->gobj_tranger, "tranger");
-
-    gobj_write_pointer_attr(priv->gobj_treedb, "tranger", priv->tranger);
     gobj_start(priv->gobj_treedb);
+    priv->tranger = gobj_read_pointer_attr(priv->gobj_treedb, "tranger");
 
     if(gobj_topic_size(priv->gobj_treedb, "roles")==0 &&
         gobj_topic_size(priv->gobj_treedb, "users")==0 &&
