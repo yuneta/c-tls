@@ -268,7 +268,12 @@ PRIVATE void mt_create(hgobj gobj)
         kw_resource,
         gobj
     );
+
+    /*
+     *  HACK pipe inheritance
+     */
     gobj_set_bottom_gobj(priv->gobj_treedb, priv->gobj_tranger);
+    gobj_set_bottom_gobj(gobj, priv->gobj_treedb);
 
     /*
      *  SERVICE subscription model
@@ -317,9 +322,14 @@ PRIVATE int mt_start(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    gobj_start(priv->gobj_tranger);
-    gobj_start(priv->gobj_treedb);
-    priv->tranger = gobj_read_pointer_attr(priv->gobj_treedb, "tranger");
+    if(!gobj_is_running(priv->gobj_treedb)) {
+        gobj_start(priv->gobj_treedb);
+    }
+
+    /*
+     *  HACK pipe inheritance
+     */
+    priv->tranger = gobj_read_pointer_attr(gobj, "tranger");
 
     if(gobj_topic_size(priv->gobj_treedb, "roles")==0 &&
         gobj_topic_size(priv->gobj_treedb, "users")==0 &&
