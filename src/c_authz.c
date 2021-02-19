@@ -1003,9 +1003,10 @@ PRIVATE json_t *get_user_roles(
             json_pack("{s:b}", // filter to childs tree
                 "disabled", 0
             ),
-            json_pack("{s:b}",
+            json_pack("{s:b, s:b, s:b}",
                 "list_dict", 1,
-                "with_metadata", 1
+                "with_metadata", 1,
+                "recursive", 1
             ),
             gobj
         );
@@ -1160,9 +1161,10 @@ PRIVATE json_t *get_user_permissions(
             json_pack("{s:b}", // filter to childs tree
                 "disabled", 0
             ),
-            json_pack("{s:b}",
+            json_pack("{s:b, s:b, s:b}",
                 "list_dict", 1,
-                "with_metadata", 1
+                "with_metadata", 1,
+                "recursive", 1
             ),
             gobj
         );
