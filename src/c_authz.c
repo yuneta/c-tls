@@ -246,6 +246,7 @@ PRIVATE void mt_create(hgobj gobj)
         kw_tranger,
         gobj
     );
+    priv->tranger = gobj_read_pointer_attr(priv->gobj_tranger, "tranger");
 
     /*----------------------*
      *  Create Treedb
@@ -256,7 +257,8 @@ PRIVATE void mt_create(hgobj gobj)
         "treedb_authzs",
         KW_REQUIRED
     );
-    json_t *kw_resource = json_pack("{s:s, s:o, s:i}",
+    json_t *kw_resource = json_pack("{s:I, s:s, s:o, s:i}",
+        "tranger", (json_int_t)(size_t)priv->tranger,
         "treedb_name", treedb_name,
         "treedb_schema", jn_treedb_schema,
         "exit_on_error", LOG_OPT_EXIT_ZERO
@@ -326,11 +328,6 @@ PRIVATE int mt_start(hgobj gobj)
         gobj_start(priv->gobj_treedb);
     }
 
-    /*
-     *  HACK pipe inheritance
-     */
-    priv->tranger = gobj_read_pointer_attr(gobj, "tranger");
-
     if(gobj_topic_size(priv->gobj_treedb, "roles")==0 &&
         gobj_topic_size(priv->gobj_treedb, "users")==0 &&
         gobj_topic_size(priv->gobj_treedb, "authorizations")==0
@@ -392,8 +389,6 @@ PRIVATE int mt_stop(hgobj gobj)
 
     gobj_stop(priv->gobj_treedb);
     gobj_stop(priv->gobj_tranger);
-
-    priv->tranger = 0;
 
     return 0;
 }
