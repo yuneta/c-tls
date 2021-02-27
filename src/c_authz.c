@@ -233,6 +233,15 @@ PRIVATE void mt_create(hgobj gobj)
         "tranger",
         TRUE
     );
+//     yuneta_realm_store_dir( TODO así sería el nuevo con GCLASS_TREEDB
+//         path,
+//         sizeof(path),
+//         gobj_yuno_role(),
+//         gobj_yuno_realm_owner(),
+//         gobj_yuno_realm_id(),
+//         "authzs",
+//         TRUE
+//     );
 
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
@@ -265,7 +274,7 @@ PRIVATE void mt_create(hgobj gobj)
     );
 
     priv->gobj_treedb = gobj_create_service(
-        treedb_name,
+        treedb_name, // TODO fuerza el nombre de "treedb_authzs" para que sea siempre conocido
         GCLASS_NODE,
         kw_resource,
         gobj
