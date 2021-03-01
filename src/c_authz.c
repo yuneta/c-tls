@@ -1002,7 +1002,7 @@ PRIVATE json_t *get_user_roles(
         json_t *tree_roles = gobj_node_childs(
             priv->gobj_treedb,
             "roles", // topic_name
-            json_incref(role),    // 'id' and topic_pkey2s fields are used to find the node
+            json_incref(role),    // 'id' and pkey2s fields are used to find the node
             "roles",
             json_pack("{s:b}", // filter to childs tree
                 "disabled", 0
@@ -1160,7 +1160,7 @@ PRIVATE json_t *get_user_permissions(
         json_t *tree_roles = gobj_node_childs(
             priv->gobj_treedb,
             "roles", // topic_name
-            json_incref(role),    // 'id' and topic_pkey2s fields are used to find the node
+            json_incref(role),    // 'id' and pkey2s fields are used to find the node
             "roles",
             json_pack("{s:b}", // filter to childs tree
                 "disabled", 0
