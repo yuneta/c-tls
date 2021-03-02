@@ -227,21 +227,12 @@ PRIVATE void mt_create(hgobj gobj)
     yuneta_realm_store_dir(
         path,
         sizeof(path),
-        "authzs",
+        gobj_yuno_role(),
         gobj_yuno_realm_owner(),
         gobj_yuno_realm_id(),
-        "tranger",
+        "authzs",
         TRUE
     );
-//     yuneta_realm_store_dir( TODO así sería el nuevo con GCLASS_TREEDB
-//         path,
-//         sizeof(path),
-//         gobj_yuno_role(),
-//         gobj_yuno_realm_owner(),
-//         gobj_yuno_realm_id(),
-//         "authzs",
-//         TRUE
-//     );
 
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
@@ -260,12 +251,7 @@ PRIVATE void mt_create(hgobj gobj)
     /*----------------------*
      *  Create Treedb
      *----------------------*/
-    const char *treedb_name = kw_get_str(
-        jn_treedb_schema,
-        "id",
-        "treedb_authzs",
-        KW_REQUIRED
-    );
+    const char *treedb_name = "treedb_authzs"; // HACK hardcoded service name
     json_t *kw_resource = json_pack("{s:I, s:s, s:o, s:i}",
         "tranger", (json_int_t)(size_t)priv->tranger,
         "treedb_name", treedb_name,
@@ -274,7 +260,7 @@ PRIVATE void mt_create(hgobj gobj)
     );
 
     priv->gobj_treedb = gobj_create_service(
-        treedb_name, // TODO fuerza el nombre de "treedb_authzs" para que sea siempre conocido
+        treedb_name,
         GCLASS_NODE,
         kw_resource,
         gobj
@@ -1073,6 +1059,20 @@ PRIVATE json_t *append_permission(
                         permission,
                         deny?json_false():json_true()
                     );
+                }
+
+                json_t *permissions = kw_get_list(role, "permissions", 0, KW_REQUIRED);
+                int idx; json_t *jn_permission;
+                json_array_foreach(permissions, idx, jn_permission) {
+                    permission = kw_get_str(jn_permission, "permission", "", KW_REQUIRED);
+                    deny = kw_get_bool(jn_permission, "deny", false, KW_REQUIRED);
+                    if(!empty_string(permission)) {
+                        json_object_set_new(
+                            services_roles,
+                            permission,
+                            deny?json_false():json_true()
+                        );
+                    }
                 }
             }
         }

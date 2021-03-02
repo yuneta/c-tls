@@ -54,13 +54,13 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '6',                                          \n\
+    'schema_version': '1',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'topic_name': 'roles',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '4',                                   \n\
+            'topic_version': '1',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'Role',                               \n\
@@ -139,6 +139,15 @@ static char treedb_schema_authzs[]= "\
                         'required'                                  \n\
                     ]                                               \n\
                 },                                                  \n\
+                'permissions': {                                    \n\
+                    'header': 'Permissions',                        \n\
+                    'fillspace': 10,                                \n\
+                    'type': 'array',                                \n\
+                    'flag': [                                       \n\
+                        'writable',                                 \n\
+                        'persistent'                                \n\
+                    ]                                               \n\
+                },                                                  \n\
                 'deny': {                                           \n\
                     'header': 'Deny',                               \n\
                     'fillspace': 4,                                 \n\
@@ -181,7 +190,7 @@ static char treedb_schema_authzs[]= "\
             'topic_name': 'users',                                  \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '5',                                   \n\
+            'topic_version': '1',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
