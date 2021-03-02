@@ -1294,6 +1294,11 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
         return 0;
     }
 
+    if(gobj_is_shutdowning()) {
+        KW_DECREF(kw);
+        return 0;
+    }
+
     /*--------------------------------------------*
      *  Add logout user
      *--------------------------------------------*/
