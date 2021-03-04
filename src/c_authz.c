@@ -539,9 +539,8 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
         "users",
-        json_pack("{s:s, s:b}",
-            "id", username,
-            "disabled", 0
+        json_pack("{s:s}",
+            "id", username
         ),
         json_pack("{s:b}",
             "with_metadata", 1
@@ -552,6 +551,18 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         json_t *jn_msg = json_pack("{s:i, s:s, s:s}",
             "result", -1,
             "comment", "User not authorized",
+            "username", username
+        );
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return jn_msg;
+    }
+
+    BOOL disabled = kw_get_bool(user, "disabled", 0, KW_REQUIRED);
+    if(disabled) {
+        json_t *jn_msg = json_pack("{s:i, s:s, s:s}",
+            "result", -1,
+            "comment", "User disabled",
             "username", username
         );
         JSON_DECREF(jwt_payload);
