@@ -21,7 +21,7 @@
             │        parent_role_id (↖) │ ──┘ 1
             │                           │
             │* description              │
-            │= disabled                 │
+            │  disabled                 │
             │* realm_id                 │
             │* service                  │
             │* permission               │
@@ -40,7 +40,7 @@
             │                           │   │
             │                 roles [↖] │ ──┘n
             │                           │
-            │= disabled                 │
+            │  disabled                 │
             │  properties               │
             │                           │
             │  __sessions               │
@@ -54,13 +54,13 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '1',                                          \n\
+    'schema_version': '2',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
-            'topic_name': 'roles',                                  \n\
+            'id': 'roles',                                          \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '1',                                   \n\
+            'topic_version': '2',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'Role',                               \n\
@@ -105,8 +105,7 @@ static char treedb_schema_authzs[]= "\
                     'default': false,                               \n\
                     'flag': [                                       \n\
                         'writable',                                 \n\
-                        'persistent',                               \n\
-                        'inherit'                                   \n\
+                        'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\
                 'realm_id': {                                       \n\
@@ -187,10 +186,10 @@ static char treedb_schema_authzs[]= "\
             }                                                       \n\
         },                                                          \n\
         {                                                           \n\
-            'topic_name': 'users',                                  \n\
+            'id': 'users',                                          \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '1',                                   \n\
+            'topic_version': '2',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -216,8 +215,7 @@ static char treedb_schema_authzs[]= "\
                     'default': false,                               \n\
                     'flag': [                                       \n\
                         'writable',                                 \n\
-                        'persistent',                               \n\
-                        'inherit'                                   \n\
+                        'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\
                 'properties': {                                     \n\

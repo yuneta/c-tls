@@ -178,7 +178,17 @@ PRIVATE void mt_create(hgobj gobj)
      *  Chequea schema fichador, exit si falla.
      */
     json_t *jn_treedb_schema = legalstring2json(treedb_schema_authzs, TRUE);
-    if(!jn_treedb_schema) {
+    if(parse_schema(jn_treedb_schema)<0) {
+        /*
+         *  Exit if schema fails
+         */
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_APP_ERROR,
+            "msg",          "%s", "Parse schema fails",
+            NULL
+        );
         exit(-1);
     }
 
@@ -628,10 +638,22 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *  And others???
      *-------------------------------*/
     const char *session_id = kw_get_str(jwt_payload, "session_state", 0, KW_REQUIRED);
-    session = json_pack("{s:I}",
+    session = json_pack("{s:s, s:I}",
+        "id", session_id,
         "channel_gobj", (json_int_t)(size_t)src
     );
-    json_object_set_new(sessions, session_id, session);
+    json_object_set(sessions, session_id, session);
+
+    user = gobj_update_node(
+        priv->gobj_treedb,
+        "users",
+        user,
+        json_pack("{s:b, s:b}",
+            "volatil", 1,
+            "with_metadata", 1
+        ),
+        src
+    );
 
     /*------------------------------------*
      *  Subscribe to know close session
@@ -641,7 +663,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
-    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:s, s:o}",
+    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:s, s:O}",
         "result", 0,
         "comment", "JWT User authenticated",
         "username", username,
@@ -649,7 +671,21 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         "services_roles", services_roles
     );
 
-    JSON_DECREF(user);
+    /*--------------------------------*
+     *      Publish
+     *--------------------------------*/
+    gobj_publish_event(
+        gobj,
+        "EV_AUTHZ_USER_LOGIN",
+        json_pack("{s:s, s:s, s:o, s:o, s:o}",
+            "username", username,
+            "dst_service", dst_service,
+            "user", user,
+            "session", session,
+            "services_roles", services_roles
+        )
+    );
+
     JSON_DECREF(jwt_payload);
     KW_DECREF(kw);
 
@@ -1084,8 +1120,6 @@ PRIVATE json_t *append_permission(
 /***************************************************************************
  *
     Ejemplo de respuesta:
-
-
  ***************************************************************************/
 PRIVATE json_t *get_user_permissions(
     hgobj gobj,
@@ -1287,7 +1321,7 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-            "msg",          "%s", "What fuck! open without jwt_payload",
+            "msg",          "%s", "open without jwt_payload",
             NULL
         );
         KW_DECREF(kw);
@@ -1320,17 +1354,36 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
                 "gobj",         "%s", gobj_full_name(gobj),
                 "function",     "%s", __FUNCTION__,
                 "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-                "msg",          "%s", "What fuck! user not found",
+                "msg",          "%s", "User not found",
                 "username",     "%s", username,
                 NULL
             );
         } else {
             json_t *sessions = kw_get_dict(user, "__sessions", 0, KW_REQUIRED);
             json_t *session = kw_get_dict(sessions, session_id, 0, KW_EXTRACT); // Remove session
-            JSON_DECREF(session);
 
             add_user_logout(gobj, username);
-            json_decref(user);
+
+            gobj_publish_event(
+                gobj,
+                "EV_AUTHZ_USER_LOGOUT",
+                json_pack("{s:s, s:O, s:o}",
+                    "username", username,
+                    "user", user,
+                    "session", session
+                )
+            );
+
+            json_decref(gobj_update_node(
+                priv->gobj_treedb,
+                "users",
+                user,
+                json_pack("{s:b, s:b}",
+                    "volatil", 1,
+                    "with_metadata", 1
+                ),
+                src
+            ));
         }
     }
 
@@ -1341,16 +1394,104 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 }
 
 /***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    const char *username = kw_get_str(kw, "username", "", KW_REQUIRED);
+    BOOL disabled = kw_get_bool(kw, "disabled", 0, 0);
+
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
+    );
+    if(!user) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "User not found",
+            "username",     "%s", username,
+            NULL
+        );
+        KW_DECREF(kw);
+        return -1;
+    }
+
+    if(disabled) {
+        json_object_set_new(user, "disabled", json_true());
+        user = gobj_update_node(
+            priv->gobj_treedb,
+            "users",
+            user,
+            json_pack("{s:b}",
+                "with_metadata", 1
+            ),
+            src
+        );
+    }
+
+    /*-----------------*
+     *  Get sessions
+     *-----------------*/
+    json_t *sessions = kw_get_dict(user, "__sessions", 0, KW_REQUIRED);
+    if(!sessions) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msg",          "%s", "__sessions NULL",
+            NULL
+        );
+    }
+    json_t *session;
+    void *n; const char *k;
+    int ret = 0;
+    json_object_foreach_safe(sessions, n, k, session) {
+        /*-------------------------------*
+         *  Drop sessions
+         *-------------------------------*/
+        hgobj prev_channel_gobj = (hgobj)(size_t)kw_get_int(session, "channel_gobj", 0, KW_REQUIRED);
+        gobj_send_event(prev_channel_gobj, "EV_DROP", 0, gobj);
+        json_object_del(sessions, k);
+        ret++;
+    }
+
+    json_decref(gobj_update_node(
+        priv->gobj_treedb,
+        "users",
+        user,
+        json_pack("{s:b, s:b}",
+            "volatil", 1,
+            "with_metadata", 1
+        ),
+        src
+    ));
+
+    KW_DECREF(kw);
+    return ret;
+}
+
+/***************************************************************************
  *                          FSM
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = { // HACK System gclass, not public events
     // top input
+    {"EV_REJECT_USER",  0,  0,  ""},
     // bottom input
     {"EV_ON_CLOSE",     0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
 };
 PRIVATE const EVENT output_events[] = { // HACK System gclass, not public events
+    {"EV_AUTHZ_USER_LOGIN",     0,  0,  ""},
+    {"EV_AUTHZ_USER_LOGOUT",    0,  0,  ""},
     {NULL, 0, 0, ""}
 };
 PRIVATE const char *state_names[] = {
@@ -1359,6 +1500,7 @@ PRIVATE const char *state_names[] = {
 };
 
 PRIVATE EV_ACTION ST_IDLE[] = {
+    {"EV_REJECT_USER",          ac_reject_user,         0},
     {"EV_ON_CLOSE",             ac_on_close,            0},
     {0,0,0}
 };
