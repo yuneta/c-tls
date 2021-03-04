@@ -565,6 +565,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
             "comment", "User disabled",
             "username", username
         );
+        json_decref(user);
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
         return jn_msg;
@@ -1411,7 +1412,6 @@ PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     const char *username = kw_get_str(kw, "username", "", KW_REQUIRED);
-    BOOL disabled = kw_get_bool(kw, "disabled", 0, 0);
 
     json_t *user = gobj_get_node(
         priv->gobj_treedb,
@@ -1435,8 +1435,10 @@ PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
         return -1;
     }
 
-    if(disabled) {
-        json_object_set_new(user, "disabled", json_true());
+
+    if(kw_has_key(kw, "disabled")) {
+        BOOL disabled = kw_get_bool(kw, "disabled", 0, 0);
+        json_object_set_new(user, "disabled", disabled?json_true():json_false());
         user = gobj_update_node(
             priv->gobj_treedb,
             "users",
