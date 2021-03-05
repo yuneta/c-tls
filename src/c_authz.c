@@ -1653,14 +1653,14 @@ PUBLIC BOOL authz_checker(hgobj gobj_to_check, const char *authz, json_t *kw, hg
     }
 
     const char *__username__ = kw_get_str(kw, "__temp__`__username__", 0, 0);
-    if(!__username__) {
+    if(empty_string(__username__)) {
         __username__ = gobj_read_str_attr(src, "__username__");
         if(empty_string(__username__)) {
             log_error(0,
                 "gobj",         "%s", gobj_full_name(gobj),
                 "function",     "%s", __FUNCTION__,
                 "msgset",       "%s", MSGSET_INTERNAL_ERROR,
-                "msg",          "%s", "No __username__ in src",
+                "msg",          "%s", "__username__ not found in kw nor src",
                 "src",          "%s", gobj_full_name(src),
                 NULL
             );
