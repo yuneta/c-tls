@@ -24,7 +24,8 @@
             │  disabled                 │
             │* realm_id                 │
             │* service                  │
-            │* permission               │
+            │  permission               │
+            │  permissions              │
             │  deny                     │
             │                           │
             │                           │
@@ -54,13 +55,13 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '2',                                          \n\
+    'schema_version': '3',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'id': 'roles',                                          \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '2',                                   \n\
+            'topic_version': '3',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'Role',                               \n\
@@ -134,8 +135,7 @@ static char treedb_schema_authzs[]= "\
                     'type': 'string',                               \n\
                     'flag': [                                       \n\
                         'writable',                                 \n\
-                        'persistent',                               \n\
-                        'required'                                  \n\
+                        'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\
                 'permissions': {                                    \n\
