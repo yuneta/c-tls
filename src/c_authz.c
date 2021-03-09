@@ -1406,6 +1406,40 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 }
 
 /***************************************************************************
+ *  Create or update a user
+ ***************************************************************************/
+PRIVATE int ac_add_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    const char *username = kw_get_str(kw, "username", "", KW_REQUIRED);
+    const char *role = kw_get_str(kw, "role", "", 0);
+    BOOL disabled = kw_get_bool(kw, "disabled", 0, 0);
+
+    time_t t;
+    time(&t);
+
+    json_t *user = gobj_update_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s, s:s, s:I, s:b}",
+            "id", username,
+            "roles", role,
+            "time", (json_int_t)t,
+            "disabled", disabled
+        ),
+        json_pack("{s:b, s:b}",
+            "create", 1,
+            "autolink", 1
+        ),
+        src
+    );
+    json_decref(user);
+
+    KW_DECREF(kw);
+    return 0;
+}
+
+/***************************************************************************
  *
  ***************************************************************************/
 PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
@@ -1423,10 +1457,10 @@ PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
         gobj
     );
     if(!user) {
-        log_error(0,
+        log_warning(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_INTERNAL_ERROR,
+            "msgset",       "%s", MSGSET_INFO,
             "msg",          "%s", "User not found",
             "username",     "%s", username,
             NULL
@@ -1496,6 +1530,7 @@ PRIVATE int ac_reject_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = { // HACK System gclass, not public events
     // top input
+    {"EV_ADD_USER",     0,  0,  ""},
     {"EV_REJECT_USER",  0,  0,  ""},
     // bottom input
     {"EV_ON_CLOSE",     0,  0,  ""},
@@ -1513,6 +1548,7 @@ PRIVATE const char *state_names[] = {
 };
 
 PRIVATE EV_ACTION ST_IDLE[] = {
+    {"EV_ADD_USER",             ac_add_user,            0},
     {"EV_REJECT_USER",          ac_reject_user,         0},
     {"EV_ON_CLOSE",             ac_on_close,            0},
     {0,0,0}

@@ -43,6 +43,7 @@
             │                           │
             │  disabled                 │
             │  properties               │
+            │  time                     │
             │                           │
             │  __sessions               │
             │  _geometry                │
@@ -55,7 +56,7 @@
 static char treedb_schema_authzs[]= "\
 {                                                                   \n\
     'id': 'treedb_authzs',                                          \n\
-    'schema_version': '3',                                          \n\
+    'schema_version': '4',                                          \n\
     'topics': [                                                     \n\
         {                                                           \n\
             'id': 'roles',                                          \n\
@@ -189,7 +190,7 @@ static char treedb_schema_authzs[]= "\
             'id': 'users',                                          \n\
             'pkey': 'id',                                           \n\
             'system_flag': 'sf_string_key',                         \n\
-            'topic_version': '2',                                   \n\
+            'topic_version': '3',                                   \n\
             'cols': {                                               \n\
                 'id': {                                             \n\
                     'header': 'User',                               \n\
@@ -224,6 +225,15 @@ static char treedb_schema_authzs[]= "\
                     'type': 'dict',                                 \n\
                     'flag': [                                       \n\
                         'writable',                                 \n\
+                        'persistent'                                \n\
+                    ]                                               \n\
+                },                                                  \n\
+                'time': {                                           \n\
+                    'header': 'Created Time',                       \n\
+                    'type': 'integer',                              \n\
+                    'fillspace': 15,                                \n\
+                    'flag': [                                       \n\
+                        'time',                                     \n\
                         'persistent'                                \n\
                     ]                                               \n\
                 },                                                  \n\
