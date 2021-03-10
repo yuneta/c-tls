@@ -756,6 +756,8 @@ PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
     const char *username = kw_get_str(kw, "username", "", 0);
 
     if(empty_string(username)) {
@@ -769,7 +771,28 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         );
     }
 
-    return gobj_build_authzs_doc(gobj, cmd, kw, src);
+    json_t *roles_refs = gobj_node_parents(
+        priv->gobj_treedb,
+        "users", // topic_name
+        json_pack("{s:s}",
+            "id", username
+        ),
+        "roles", // link
+        json_pack("{s:b}",
+            "refs", 1,
+            "with_metadata", 1
+        ),
+        gobj
+    );
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        roles_refs,
+        kw  // owned
+    );
 }
 
 /***************************************************************************
@@ -777,6 +800,8 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
  ***************************************************************************/
 PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
     const char *username = kw_get_str(kw, "username", "", 0);
 
     if(empty_string(username)) {
@@ -790,7 +815,70 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
         );
     }
 
-    return gobj_build_authzs_doc(gobj, cmd, kw, src);
+    json_t *services_roles = json_array();
+
+    json_t *roles_refs = gobj_node_parents(
+        priv->gobj_treedb,
+        "users", // topic_name
+        json_pack("{s:s}",
+            "id", username
+        ),
+        "roles", // link
+        json_pack("{s:b}",
+            "list_dict", 1,
+            "with_metadata", 1
+        ),
+        gobj
+    );
+
+    int idx; json_t *role_ref;
+    json_array_foreach(roles_refs, idx, role_ref) {
+        json_t *role = gobj_get_node(
+            priv->gobj_treedb,
+            "roles", // topic_name
+            json_incref(role_ref),
+            json_pack("{s:b}",
+                "list_dict", 1,
+                "with_metadata", 1
+            ),
+            gobj
+        );
+
+        json_array_append(services_roles, role);
+
+        json_t *tree_roles = gobj_node_childs(
+            priv->gobj_treedb,
+            "roles", // topic_name
+            role,    // 'id' and pkey2s fields are used to find the node
+            "roles",
+            json_pack("{s:b}", // filter to childs tree
+                "disabled", 0
+            ),
+            json_pack("{s:b, s:b, s:b}",
+                "list_dict", 1,
+                "with_metadata", 1,
+                "recursive", 1
+            ),
+            gobj
+        );
+
+        json_t *child;
+        int idx3;
+        json_array_foreach(tree_roles, idx3, child) {
+            json_array_append_new(services_roles, json_incref(child));
+        }
+        json_decref(tree_roles);
+    }
+    json_decref(roles_refs);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        services_roles,
+        kw  // owned
+    );
 }
 
 
@@ -1430,22 +1518,38 @@ PRIVATE int ac_add_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
     time_t t;
     time(&t);
 
-    json_t *user = gobj_update_node(
-        priv->gobj_treedb,
-        "users",
-        json_pack("{s:s, s:s, s:I, s:b}",
-            "id", username,
-            "roles", role,
-            "time", (json_int_t)t,
-            "disabled", disabled
-        ),
-        json_pack("{s:b, s:b}",
-            "create", 1,
-            "autolink", 1
-        ),
-        src
-    );
-    json_decref(user);
+    if(empty_string(role)) {
+        json_decref(gobj_update_node(
+            priv->gobj_treedb,
+            "users",
+            json_pack("{s:s, s:I, s:b}",
+                "id", username,
+                "time", (json_int_t)t,
+                "disabled", disabled
+            ),
+            json_pack("{s:b, s:b}",
+                "create", 1,
+                "autolink", 0
+            ),
+            src
+        ));
+    } else {
+        json_decref(gobj_update_node(
+            priv->gobj_treedb,
+            "users",
+            json_pack("{s:s, s:s, s:I, s:b}",
+                "id", username,
+                "roles", role,
+                "time", (json_int_t)t,
+                "disabled", disabled
+            ),
+            json_pack("{s:b, s:b}",
+                "create", 1,
+                "autolink", 1
+            ),
+            src
+        ));
+    }
 
     KW_DECREF(kw);
     return 0;
