@@ -548,6 +548,18 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         gobj
     );
     if(!user) {
+        /*--------------------------------*
+         *      Publish
+         *--------------------------------*/
+        gobj_publish_event(
+            gobj,
+            "EV_AUTHZ_USER_NOT_AUTHORIZED",
+            json_pack("{s:s, s:s}",
+                "username", username,
+                "dst_service", dst_service
+            )
+        );
+
         json_t *jn_msg = json_pack("{s:i, s:s, s:s}",
             "result", -1,
             "comment", "User not authorized",
@@ -1538,8 +1550,10 @@ PRIVATE const EVENT input_events[] = { // HACK System gclass, not public events
     {NULL, 0, 0, ""}
 };
 PRIVATE const EVENT output_events[] = { // HACK System gclass, not public events
-    {"EV_AUTHZ_USER_LOGIN",     0,  0,  ""},
-    {"EV_AUTHZ_USER_LOGOUT",    0,  0,  ""},
+    {"EV_AUTHZ_USER_LOGIN",             0,  0,  ""},
+    {"EV_AUTHZ_USER_LOGOUT",            0,  0,  ""},
+    {"EV_AUTHZ_USER_NOT_AUTHORIZED",    0,  0,  ""},
+
     {NULL, 0, 0, ""}
 };
 PRIVATE const char *state_names[] = {
