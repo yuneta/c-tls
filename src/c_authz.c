@@ -432,7 +432,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
          *-------------------------------*/
         if(is_ip_denied(peername)) {
             /*
-             *  IP autorizada sin user/passw, informa
+             *  IP no autorizada sin user/passw, informa
              */
             KW_DECREF(kw);
             return json_pack("{s:i, s:s}",

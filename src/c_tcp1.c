@@ -397,12 +397,12 @@ PRIVATE void on_close_cb(uv_handle_t* handle)
 
     if(priv->inform_disconnection) {
         priv->inform_disconnection = FALSE;
-        if(!empty_string(priv->disconnected_event_name)) {
-            gobj_publish_event(gobj, priv->disconnected_event_name, 0);
-        }
+        gobj_publish_event(gobj, priv->disconnected_event_name, 0);
     }
 
-    if(!empty_string(priv->stopped_event_name)) {
+    if(gobj_is_volatil(gobj)) {
+        gobj_destroy(gobj);
+    } else {
         gobj_publish_event(gobj, priv->stopped_event_name, 0);
     }
 }
@@ -500,13 +500,11 @@ PRIVATE void set_secure_connected(hgobj gobj)
         gobj_change_state(gobj, "ST_CONNECTED");
     }
 
-    if(!empty_string(priv->connected_event_name)) {
-        json_t *kw_ev = json_pack("{s:s, s:s}",
-            "peername", priv->peername,
-            "sockname", priv->sockname
-        );
-        gobj_publish_event(gobj, priv->connected_event_name, kw_ev);
-    }
+    json_t *kw_ev = json_pack("{s:s, s:s}",
+        "peername", priv->peername,
+        "sockname", priv->sockname
+    );
+    gobj_publish_event(gobj, priv->connected_event_name, kw_ev);
 
     ytls_flush(priv->ytls, priv->sskt);
 }
@@ -539,9 +537,7 @@ PRIVATE void set_disconnected(hgobj gobj, const char *cause)
 
     if(priv->inform_disconnection) {
         priv->inform_disconnection = FALSE;
-        if(!empty_string(priv->disconnected_event_name)) {
-            gobj_publish_event(gobj, priv->disconnected_event_name, 0);
-        }
+        gobj_publish_event(gobj, priv->disconnected_event_name, 0);
     }
 
     if(gobj_read_bool_attr(gobj, "__clisrv__")) {
