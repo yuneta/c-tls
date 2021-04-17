@@ -41,7 +41,6 @@ SDATA (ASN_OCTET_STR,   "lHost",                SDF_RD,             0,          
 SDATA (ASN_OCTET_STR,   "lPort",                SDF_RD,             0,              "Listening port, got from url"),
 SDATA (ASN_OCTET_STR,   "stopped_event_name",   SDF_RD,            "EV_STOPPED",   "Stopped event name"),
 SDATA (ASN_BOOLEAN,     "only_allowed_ips",     SDF_RD,             0,              "Only allowed ips"),
-SDATA (ASN_JSON,        "allowed_ips",          SDF_RD,             "{}",           "Allowed peer ip's if true, false not allowed"),
 SDATA (ASN_BOOLEAN,     "trace",                SDF_WR|SDF_PERSIST, 0,              "Trace TLS"),
 SDATA (ASN_BOOLEAN,     "shared",               SDF_RD,             0,              "Share the port"),
 SDATA (ASN_BOOLEAN,     "exitOnError",          SDF_RD,             1,              "Exit if Listen failed"),
@@ -399,21 +398,6 @@ PRIVATE int mt_stop(hgobj gobj)
 
 
 /***************************************************************************
- *  Is ip or peername allowed?
- ***************************************************************************/
-PRIVATE BOOL check_ip_allowed(hgobj gobj, const char *peername)
-{
-    char ip[NAME_MAX];
-    snprintf(ip, sizeof(ip), "%s", peername);
-    char *p = strchr(ip, ':');
-    if(p) {
-        *p = 0;
-    }
-    json_t *b = json_object_get(gobj_read_json_attr(gobj, "allowed_ips"), ip);
-    return json_is_true(b)?TRUE:FALSE;
-}
-
-/***************************************************************************
  *
  ***************************************************************************/
 PRIVATE void on_close_cb(uv_handle_t* handle)
@@ -655,7 +639,16 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
         const char *peername = gobj_read_str_attr(clisrv, "peername");
         const char *localhost = "127.0.0.";
         if(strncmp(peername, localhost, strlen(localhost))!=0) {
-            if(!check_ip_allowed(gobj, peername)) {
+            if(!is_ip_allowed(peername)) {
+                log_info(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "function",     "%s", __FUNCTION__,
+                    "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+                    "msg",          "%s", "Ip not allowed",
+                    "url",          "%s", priv->url,
+                    "peername",     "%s", peername,
+                    NULL
+                );
                 gobj_stop(clisrv);
                 return;
             }
