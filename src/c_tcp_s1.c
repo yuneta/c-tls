@@ -611,10 +611,6 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
     );
 
     if(gobj_bottom) {
-        if(gobj_has_attr(gobj_bottom, "tcp0")) {
-            // Old method previous to bottom gobj (websocket and V2).
-            gobj_write_pointer_attr(gobj_bottom, "tcp0", clisrv);
-        }
         gobj_set_bottom_gobj(gobj_bottom, clisrv);
     }
 
