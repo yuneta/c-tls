@@ -561,6 +561,15 @@ PRIVATE int ac_transmit_ready(hgobj gobj, const char *event, json_t *kw, hgobj s
 /***************************************************************************
  *
  ***************************************************************************/
+PRIVATE int ac_ignore_transmit_ready(hgobj gobj, const char *event, json_t *kw, hgobj src)
+{
+    KW_DECREF(kw);
+    return 0;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
 PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
@@ -649,6 +658,7 @@ PRIVATE EV_ACTION ST_WAIT_CONNECTED[] = {
     {"EV_STOPPED",          ac_stopped,                 "ST_DISCONNECTED"},
     {"EV_TIMEOUT",          ac_timeout_wait_connected,  "ST_DISCONNECTED"},
     {"EV_DROP",             ac_drop,                    "ST_WAIT_DISCONNECTED"},
+    {"EV_TX_READY",         ac_ignore_transmit_ready,   0},
     {0,0,0}
 };
 PRIVATE EV_ACTION ST_CONNECTED[] = {
@@ -665,6 +675,7 @@ PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
     {"EV_DISCONNECTED",     ac_disconnected,            "ST_DISCONNECTED"},
     {"EV_STOPPED",          ac_stopped,                 "ST_DISCONNECTED"},
     {"EV_TIMEOUT",          ac_stopped,                 "ST_DISCONNECTED"},
+    {"EV_TX_READY",         ac_ignore_transmit_ready,   0},
     {0,0,0}
 };
 
