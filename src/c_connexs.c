@@ -157,6 +157,7 @@ PRIVATE void mt_create(hgobj gobj)
             "msg",          "%s", "urls MUST BE an json array!",
             NULL
         );
+        log_debug_json(0, priv->urls, "urls MUST BE an json array!");
     }
     priv->n_urls = json_array_size(priv->urls);
 }
@@ -183,6 +184,7 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
                 "msg",          "%s", "urls MUST BE an json array!",
                 NULL
             );
+            log_debug_json(0, priv->urls, "urls MUST BE an json array!");
         }
         priv->n_urls = json_array_size(priv->urls);
     END_EQ_SET_PRIV()
