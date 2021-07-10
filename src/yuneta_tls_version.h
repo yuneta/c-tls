@@ -3,8 +3,7 @@
  *              Copyright (c) 2013,2018 Niyamaka.
  *              All Rights Reserved.
  ****************************************************************************/
-#ifndef _YUNETA_TLS_VERSION_H
-#define _YUNETA_TLS_VERSION_H 1
+#pragma once
 
 #include <yuneta_version.h>
 
@@ -23,5 +22,3 @@ extern "C"{
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* _YUNETA_TLS_VERSION_H */

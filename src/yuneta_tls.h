@@ -4,9 +4,7 @@
  *              Copyright (c) 2018 Niyamaka.
  *              All Rights Reserved.
  ****************************************************************************/
-
-#ifndef _YUNETA_TLS_H
-#define _YUNETA_TLS_H 1
+#pragma once
 
 #ifdef __cplusplus
 extern "C"{
@@ -27,7 +25,3 @@ extern "C"{
 #ifdef __cplusplus
 }
 #endif
-
-
-#endif
-

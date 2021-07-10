@@ -7,8 +7,7 @@
  *          Copyright (c) 2018 by Niyamaka.
  *          All Rights Reserved.
  ****************************************************************************/
-#ifndef _C_TCP1_H
-#define _C_TCP1_H 1
+#pragma once
 
 #include <yuneta.h>
 #include <ytls.h>
@@ -35,6 +34,4 @@ PUBLIC int accept_connection1(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

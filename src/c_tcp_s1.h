@@ -7,8 +7,7 @@
  *          Copyright (c) 2018 Niyamaka.
  *          All Rights Reserved.
  ****************************************************************************/
-#ifndef _C_TCP_S1_H
-#define _C_TCP_S1_H 1
+#pragma once
 
 #include <yuneta.h>
 #include <ytls.h>
@@ -32,6 +31,4 @@ PUBLIC GCLASS *gclass_tcp_s1(void);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
