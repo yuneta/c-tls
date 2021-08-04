@@ -16,6 +16,9 @@ extern "C"{
 
 #include "c_authz.h"
 
+// Tasks
+#include "c_task_authenticate.h"
+
 // Protocols
 #include "c_connexs.h"
 #include "c_tcp1.h"

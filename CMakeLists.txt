@@ -43,6 +43,9 @@ include_directories(/yuneta/development/output/include)
 set (SRCS
     src/yuneta_tls_register.c
 
+    # Tasks
+    src/c_task_authenticate.c
+
     # Services
     src/c_authz.c
 
@@ -59,6 +62,9 @@ set (HDRS
     src/yuneta_tls.h
     src/yuneta_tls_version.h
     src/yuneta_tls_register.h
+
+    # Tasks
+    src/c_task_authenticate.h
 
     # Services
     src/c_authz.h
