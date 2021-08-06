@@ -49,8 +49,10 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
+SDATA (ASN_BOOLEAN,     "offline_access",   0,              1,              "Get offline token"),
 SDATA (ASN_OCTET_STR,   "token_endpoint",   0,              "",             "OAuth2 Token EndPoint (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_id",          0,              "",             "OAuth2 User Id (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "client_id",        0,              "",             "OAuth2 client id (azp - authorized party ) (interactive jwt)"),
 SDATA (ASN_POINTER,     "user_data",        0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,              0,              "subscriber of output-events. Not a child gobj."),
@@ -141,9 +143,15 @@ PRIVATE int mt_start(hgobj gobj)
     priv->gobj_http = gobj_create(
         gobj_name(gobj),
         GCLASS_PROT_HTTP_CLI,
-        json_pack("{s:s}", "url", gobj_read_str_attr(gobj, "token_endpoint")),
+        json_pack("{s:I, s:s}",
+            "subscriber",
+            "url", gobj_read_str_attr(gobj, "token_endpoint")
+        ),
         gobj
     );
+    // HACK Don't subscribe events, will do the tasks
+    gobj_unsubscribe_event(priv->gobj_http, NULL, NULL, gobj);
+
     gobj_set_bottom_gobj(gobj, priv->gobj_http);
 
     gobj_set_bottom_gobj(
@@ -156,7 +164,6 @@ PRIVATE int mt_start(hgobj gobj)
         )
     );
 
-    // HACK Don't subscribe events, will do the tasks
     gobj_start_tree(priv->gobj_http);
 
     /*-----------------------------*
@@ -170,8 +177,8 @@ PRIVATE int mt_start(hgobj gobj)
         "gobj_results", (json_int_t)(size_t)priv->gobj_http,
         "input_data", json_object(),
         "jobs",
-            "exec_action", "action_add_row",
-            "exec_result", "result_add_row"
+            "exec_action", "action_get_token",
+            "exec_result", "result_get_token"
     );
 
     hgobj gobj_task = gobj_create(gobj_name(gobj), GCLASS_TASK, kw_task, gobj);
@@ -238,7 +245,7 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE json_t *action_add_row(
+PRIVATE json_t *action_get_token(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
@@ -247,6 +254,31 @@ PRIVATE json_t *action_add_row(
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
+    BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
+    const char *client_id = gobj_read_str_attr(gobj, "client_id");
+/*
+    headers = CaseInsensitiveDict()
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    data = ""
+    form_data = {
+        "username": admin_user,
+        "password": admin_passw,
+        "grant_type": "password",
+        "client_id": client_id
+    }
+    if offline_access:
+        form_data["scope"] = "openid offline_access"
+
+    for k in form_data:
+        v = form_data[k]
+        if not data:
+            data += """%s=%s""" % (k,v)
+        else:
+            data += """&%s=%s""" % (k,v)
+
+    resp = requests.post(url, headers=headers, data=data, verify=False)
+    */
     json_t *query = json_pack("{s:o}",
         "query",
         0
@@ -260,13 +292,29 @@ PRIVATE json_t *action_add_row(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE json_t *result_add_row(
+PRIVATE json_t *result_get_token(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
     hgobj src
 )
 {
+/*
+    if resp.status_code != 200:
+        print("- '" + repr(cmd) + "': [bright_white on red]Code " + \
+            str(resp.status_code) + " " + resp.text + " [/]")
+        os._exit(-1)
+
+    r = resp.json()
+    access_token = r["access_token"]
+    refresh_token = r["refresh_token"]
+    if "id_token" in r:
+        id_token = r["id_token"]
+    else:
+        id_token = ""
+    expires_in = int(r["expires_in"])
+*/
+
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
     if(result == 0 || 1) { // Send ack always
         json_t *input_data = gobj_read_json_attr(src, "input_data");
@@ -293,6 +341,70 @@ PRIVATE json_t *result_add_row(
     return (void *)(size_t)result;
 }
 
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *action_logout(
+    hgobj gobj,
+    const char *lmethod,
+    json_t *kw,
+    hgobj src
+)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+/*
+        url = keycloak_base_url + "/auth/realms/" + keycloak_realm_name + "/protocol/openid-connect/logout"
+
+        cmd = "Logout ==> POST " + url
+
+        headers = CaseInsensitiveDict()
+        headers["Authorization"] = "Bearer " + access_token
+        headers["Connection"] = "close"
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+        data = ""
+        form_data = {
+            "refresh_token": refresh_token,
+            "client_id": client_id
+        }
+        for k in form_data:
+            v = form_data[k]
+            if not data:
+                data += """%s=%s""" % (k,v)
+            else:
+                data += """&%s=%s""" % (k,v)
+
+        resp = requests.post(url, headers=headers, data=data, verify=False)
+    */
+
+    KW_DECREF(kw);
+    return (void *)0; // continue
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *result_logout(
+    hgobj gobj,
+    const char *lmethod,
+    json_t *kw,
+    hgobj src
+)
+{
+    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
+/*
+        if resp.status_code != 204:
+            print("- '" + repr(cmd) + "': [bright_white on red]Code " + \
+                str(resp.status_code) + " " + resp.text + " [/]")
+            os._exit(-1)
+*/
+
+
+    KW_DECREF(kw);
+    return (void *)(size_t)result;
+}
+
 
 
 
@@ -313,6 +425,22 @@ PRIVATE json_t *result_add_row(
 /***************************************************************************
  *
  ***************************************************************************/
+PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
+{
+    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
+
+    if(result < 0) {
+    }
+
+    // TODO publish EV_ON_TOKEN
+
+    KW_DECREF(kw);
+    return 0;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
 PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     KW_DECREF(kw);
@@ -324,6 +452,9 @@ PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = {
     // top input
+    {"EV_ON_MESSAGE",       0,  0,  0},
+    {"EV_END_TASK",         0,  0,  0},
+    // bottom input
     {"EV_STOPPED",          0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
@@ -338,7 +469,8 @@ PRIVATE const char *state_names[] = {
 };
 
 PRIVATE EV_ACTION ST_IDLE[] = {
-    {"EV_STOPPED",              ac_stopped,                 0},
+    {"EV_END_TASK",             ac_end_task,            0},
+    {"EV_STOPPED",              ac_stopped,             0},
     {0,0,0}
 };
 
@@ -361,8 +493,10 @@ PRIVATE FSM fsm = {
  *              Local methods table
  *---------------------------------------------*/
 PRIVATE LMETHOD lmt[] = {
-    {"action_add_row",                      action_add_row, 0},
-    {"result_add_row",                      result_add_row, 0},
+    {"action_get_token",            action_get_token,   0},
+    {"result_get_token",            result_get_token,   0},
+    {"action_logout",               action_logout,      0},
+    {"result_logout",               result_logout,      0},
     {0, 0, 0}
 };
 
