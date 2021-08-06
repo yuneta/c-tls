@@ -144,7 +144,7 @@ PRIVATE int mt_start(hgobj gobj)
         json_pack("{s:s}", "url", gobj_read_str_attr(gobj, "token_endpoint")),
         gobj
     );
-    //gobj_set_bottom_gobj(gobj, priv->gobj_http);
+    gobj_set_bottom_gobj(gobj, priv->gobj_http);
 
     gobj_set_bottom_gobj(
         priv->gobj_http,
@@ -163,8 +163,7 @@ PRIVATE int mt_start(hgobj gobj)
      *      Create the task
      *-----------------------------*/
     json_t *kw_task = json_pack(
-        "{s:I, s:I, s:O, s:["
-            "{s:s, s:s},"
+        "{s:I, s:I, s:o, s:["
             "{s:s, s:s}"
             "]}",
         "gobj_jobs", (json_int_t)(size_t)gobj,
