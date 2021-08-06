@@ -49,6 +49,8 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
+SDATA (ASN_OCTET_STR,   "token_endpoint",   0,              "",             "OAuth2 Token EndPoint (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "user_id",          0,              "",             "OAuth2 User Id (interactive jwt)"),
 SDATA (ASN_POINTER,     "user_data",        0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,              0,              "subscriber of output-events. Not a child gobj."),
@@ -73,9 +75,7 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
  *              Private data
  *---------------------------------------------*/
 typedef struct _PRIVATE_DATA {
-    int32_t timeout_response;
-    hgobj timer;
-
+    hgobj gobj_http;
 } PRIVATE_DATA;
 
 
@@ -93,9 +93,7 @@ typedef struct _PRIVATE_DATA {
  ***************************************************************************/
 PRIVATE void mt_create(hgobj gobj)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
+    //PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     /*
      *  SERVICE subscription model
@@ -109,7 +107,7 @@ PRIVATE void mt_create(hgobj gobj)
      *  Do copy of heavy used parameters, for quick access.
      *  HACK The writable attributes must be repeated in mt_writing method.
      */
-    SET_PRIV(timeout_response,            gobj_read_int32_attr)
+    //SET_PRIV(timeout,               gobj_read_int32_attr)
 }
 
 /***************************************************************************
@@ -117,10 +115,10 @@ PRIVATE void mt_create(hgobj gobj)
  ***************************************************************************/
 PRIVATE void mt_writing(hgobj gobj, const char *path)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    //PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    IF_EQ_SET_PRIV(timeout_response,              gobj_read_int32_attr)
-    END_EQ_SET_PRIV()
+    //IF_EQ_SET_PRIV(timeout,             gobj_read_int32_attr)
+    //END_EQ_SET_PRIV()
 }
 
 /***************************************************************************
@@ -137,7 +135,54 @@ PRIVATE int mt_start(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    gobj_start(priv->timer);
+    /*-----------------------------*
+     *      Create http
+     *-----------------------------*/
+    priv->gobj_http = gobj_create(
+        gobj_name(gobj),
+        GCLASS_PROT_HTTP_CLI,
+        json_pack("{s:s}", "url", gobj_read_str_attr(gobj, "token_endpoint")),
+        gobj
+    );
+    //gobj_set_bottom_gobj(gobj, priv->gobj_http);
+
+    gobj_set_bottom_gobj(
+        priv->gobj_http,
+        gobj_create(
+            gobj_name(gobj),
+            GCLASS_CONNEX,
+            json_pack("{s:[s]}", "urls", gobj_read_str_attr(gobj, "token_endpoint")),
+            priv->gobj_http
+        )
+    );
+
+    // HACK Don't subscribe events, will do the tasks
+    gobj_start_tree(priv->gobj_http);
+
+    /*-----------------------------*
+     *      Create the task
+     *-----------------------------*/
+    json_t *kw_task = json_pack(
+        "{s:I, s:I, s:O, s:["
+            "{s:s, s:s},"
+            "{s:s, s:s}"
+            "]}",
+        "gobj_jobs", (json_int_t)(size_t)gobj,
+        "gobj_results", (json_int_t)(size_t)priv->gobj_http,
+        "input_data", json_object(),
+        "jobs",
+            "exec_action", "action_add_row",
+            "exec_result", "result_add_row"
+    );
+
+    hgobj gobj_task = gobj_create(gobj_name(gobj), GCLASS_TASK, kw_task, gobj);
+    gobj_subscribe_event(gobj_task, "EV_END_TASK", 0, gobj);
+    gobj_set_volatil(gobj_task, TRUE); // auto-destroy
+
+    /*-----------------------*
+     *      Start task
+     *-----------------------*/
+    gobj_start(gobj_task);
 
     return 0;
 }
@@ -149,8 +194,8 @@ PRIVATE int mt_stop(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    clear_timeout(priv->timer);
-    gobj_stop(priv->timer);
+    EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
+
     return 0;
 }
 
@@ -185,6 +230,74 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 
 
             /***************************
+             *      Jobs
+             ***************************/
+
+
+
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *action_add_row(
+    hgobj gobj,
+    const char *lmethod,
+    json_t *kw,
+    hgobj src
+)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    json_t *query = json_pack("{s:o}",
+        "query",
+        0
+    );
+    gobj_send_event(priv->gobj_http, "EV_SEND_QUERY", query, gobj);
+
+    KW_DECREF(kw);
+    return (void *)0; // continue
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *result_add_row(
+    hgobj gobj,
+    const char *lmethod,
+    json_t *kw,
+    hgobj src
+)
+{
+    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
+    if(result == 0 || 1) { // Send ack always
+        json_t *input_data = gobj_read_json_attr(src, "input_data");
+        json_t *__temp__ = kw_get_dict_value(input_data, "__temp__", 0, KW_REQUIRED|KW_EXTRACT);
+
+        json_t *kw_ack = trq_answer(
+            input_data,  // not owned
+            0
+        );
+
+        if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
+            trace_msg("  -> BACK ack rowid %"JSON_INTEGER_FORMAT"",
+                kw_get_int(kw_ack, __MD_TRQ__"`__msg_key__", 0, KW_REQUIRED)
+            );
+        }
+//         send_ack(
+//             gobj,
+//             kw_ack, // owned
+//             __temp__ // owned, Set the channel
+//         );
+    }
+
+    KW_DECREF(kw);
+    return (void *)(size_t)result;
+}
+
+
+
+
+            /***************************
              *      Local Methods
              ***************************/
 
@@ -212,34 +325,26 @@ PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = {
     // top input
-    {"EV_TIMEOUT",          0,  0,  ""},
     {"EV_STOPPED",          0,  0,  ""},
     // internal
     {NULL, 0, 0, ""}
 };
 PRIVATE const EVENT output_events[] = {
-    {"EV_ON_OPEN",          EVF_PUBLIC_EVENT,   0,  0},
-    {"EV_ON_CLOSE",         EVF_PUBLIC_EVENT,   0,  0},
-    {"EV_ON_MESSAGE",       EVF_PUBLIC_EVENT,   0,  0},
+    {"EV_ON_TOKEN",         0,   0,  0},
     {NULL, 0, 0, ""}
 };
 PRIVATE const char *state_names[] = {
-    "ST_DISCONNECTED",
-    "ST_SESSION",
+    "ST_IDLE",
     NULL
 };
 
-PRIVATE EV_ACTION ST_DISCONNECTED[] = {
+PRIVATE EV_ACTION ST_IDLE[] = {
+    {"EV_STOPPED",              ac_stopped,                 0},
     {0,0,0}
 };
-PRIVATE EV_ACTION ST_SESSION[] = {
-    {0,0,0}
-};
-
 
 PRIVATE EV_ACTION *states[] = {
-    ST_DISCONNECTED,
-    ST_SESSION,
+    ST_IDLE,
     NULL
 };
 
@@ -257,6 +362,8 @@ PRIVATE FSM fsm = {
  *              Local methods table
  *---------------------------------------------*/
 PRIVATE LMETHOD lmt[] = {
+    {"action_add_row",                      action_add_row, 0},
+    {"result_add_row",                      result_add_row, 0},
     {0, 0, 0}
 };
 
