@@ -140,12 +140,20 @@ PRIVATE int mt_start(hgobj gobj)
     /*-----------------------------*
      *      Create http
      *-----------------------------*/
+    const char *url = gobj_read_str_attr(gobj, "token_endpoint");
+    char schema[20]={0}, host[120]={0}, port[40]={0};
+    parse_http_url(url, schema, sizeof(schema), host, sizeof(host), port, sizeof(port), FALSE);
+    BOOL secure = FALSE;
+    if(strcasecmp(schema, "https")==0 || strcasecmp(schema, "wss")==0) {
+        secure = TRUE;
+    }
+
     priv->gobj_http = gobj_create(
         gobj_name(gobj),
         GCLASS_PROT_HTTP_CLI,
         json_pack("{s:I, s:s}",
-            "subscriber",
-            "url", gobj_read_str_attr(gobj, "token_endpoint")
+            "subscriber", (json_int_t)0,
+            "url", url
         ),
         gobj
     );
@@ -158,8 +166,8 @@ PRIVATE int mt_start(hgobj gobj)
         priv->gobj_http,
         gobj_create(
             gobj_name(gobj),
-            GCLASS_CONNEX,
-            json_pack("{s:[s]}", "urls", gobj_read_str_attr(gobj, "token_endpoint")),
+            secure?GCLASS_CONNEXS:GCLASS_CONNEX,
+            json_pack("{s:[s]}", "urls", url),
             priv->gobj_http
         )
     );
@@ -256,6 +264,7 @@ PRIVATE json_t *action_get_token(
 
     BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
     const char *client_id = gobj_read_str_attr(gobj, "client_id");
+    const char *user_id = gobj_read_str_attr(gobj, "user_id");
 /*
     headers = CaseInsensitiveDict()
     headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -279,11 +288,10 @@ PRIVATE json_t *action_get_token(
 
     resp = requests.post(url, headers=headers, data=data, verify=False)
     */
-    json_t *query = json_pack("{s:o}",
-        "query",
-        0
+    json_t *query = json_pack("{s:s}",
+        "method", "POST"
     );
-    gobj_send_event(priv->gobj_http, "EV_SEND_QUERY", query, gobj);
+    gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
 
     KW_DECREF(kw);
     return (void *)0; // continue
@@ -452,7 +460,6 @@ PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = {
     // top input
-    {"EV_ON_MESSAGE",       0,  0,  0},
     {"EV_END_TASK",         0,  0,  0},
     // bottom input
     {"EV_STOPPED",          0,  0,  ""},
