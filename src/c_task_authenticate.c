@@ -49,10 +49,11 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
-SDATA (ASN_BOOLEAN,     "offline_access",   0,              1,              "Get offline token"),
-SDATA (ASN_OCTET_STR,   "token_endpoint",   0,              "",             "OAuth2 Token EndPoint (interactive jwt)"),
-SDATA (ASN_OCTET_STR,   "user_id",          0,              "",             "OAuth2 User Id (interactive jwt)"),
-SDATA (ASN_OCTET_STR,   "client_id",        0,              "",             "OAuth2 client id (azp - authorized party ) (interactive jwt)"),
+SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         1,              "Get offline token"),
+SDATA (ASN_JSON,        "crypto",           SDF_RD,         "{\"library\": \"openssl\"}", "Crypto config"),
+SDATA (ASN_OCTET_STR,   "token_endpoint",   SDF_RD,         "",             "OAuth2 Token EndPoint (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "user_id",          SDF_RD,         "",             "OAuth2 User Id (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "client_id",        SDF_RD,         "",             "OAuth2 client id (azp - authorized party ) (interactive jwt)"),
 SDATA (ASN_POINTER,     "user_data",        0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,              0,              "subscriber of output-events. Not a child gobj."),
@@ -144,8 +145,10 @@ PRIVATE int mt_start(hgobj gobj)
     char schema[20]={0}, host[120]={0}, port[40]={0};
     parse_http_url(url, schema, sizeof(schema), host, sizeof(host), port, sizeof(port), FALSE);
     BOOL secure = FALSE;
+    json_t *jn_crypto = 0;
     if(strcasecmp(schema, "https")==0 || strcasecmp(schema, "wss")==0) {
         secure = TRUE;
+        jn_crypto = gobj_read_json_attr(gobj, "crypto");
     }
 
     priv->gobj_http = gobj_create(
@@ -167,7 +170,9 @@ PRIVATE int mt_start(hgobj gobj)
         gobj_create(
             gobj_name(gobj),
             secure?GCLASS_CONNEXS:GCLASS_CONNEX,
-            json_pack("{s:[s]}", "urls", url),
+            secure?
+                json_pack("{s:[s], s:O}", "urls", url, "crypto", jn_crypto):
+                json_pack("{s:[s]}", "urls", url),
             priv->gobj_http
         )
     );
@@ -265,31 +270,36 @@ PRIVATE json_t *action_get_token(
     BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
     const char *client_id = gobj_read_str_attr(gobj, "client_id");
     const char *user_id = gobj_read_str_attr(gobj, "user_id");
-/*
-    headers = CaseInsensitiveDict()
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    const char *user_passw = gobj_read_str_attr(gobj, "user_passw");
 
-    data = ""
-    form_data = {
-        "username": admin_user,
-        "password": admin_passw,
-        "grant_type": "password",
-        "client_id": client_id
+    json_t *jn_headers = json_pack("{s:s}",
+        "Content-Type", "application/x-www-form-urlencoded"
+    );
+
+    json_t *jn_form_data = json_pack("{s:s, s:s, s:s, s:s}",
+        "username", user_id,
+        "password", user_passw,
+        "grant_type", "password",
+        "client_id", client_id
+    );
+    if (offline_access) {
+        json_object_set_new(jn_form_data, "scope", json_string( "openid offline_access"));
     }
-    if offline_access:
-        form_data["scope"] = "openid offline_access"
 
-    for k in form_data:
-        v = form_data[k]
-        if not data:
-            data += """%s=%s""" % (k,v)
-        else:
-            data += """&%s=%s""" % (k,v)
+//     for k in form_data:
+//         v = form_data[k]
+//         if not data:
+//             data += """%s=%s""" % (k,v)
+//         else:
+//             data += """&%s=%s""" % (k,v)
 
-    resp = requests.post(url, headers=headers, data=data, verify=False)
-    */
-    json_t *query = json_pack("{s:s}",
-        "method", "POST"
+//     resp = requests.post(url, headers=headers, data=data, verify=False)
+
+    json_t *query = json_pack("{s:s, s:o, s:o}",
+        "method", "POST",
+        "headers", jn_headers,
+        "data", jn_form_data
+        //"verify", FALSE TODO?
     );
     gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
 
