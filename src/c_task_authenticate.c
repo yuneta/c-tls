@@ -324,25 +324,7 @@ PRIVATE json_t *result_get_token(
 */
 
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-    if(result == 0 || 1) { // Send ack always
-        json_t *input_data = gobj_read_json_attr(src, "input_data");
-        json_t *__temp__ = kw_get_dict_value(input_data, "__temp__", 0, KW_REQUIRED|KW_EXTRACT);
-
-        json_t *kw_ack = trq_answer(
-            input_data,  // not owned
-            0
-        );
-
-        if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
-            trace_msg("  -> BACK ack rowid %"JSON_INTEGER_FORMAT"",
-                kw_get_int(kw_ack, __MD_TRQ__"`__msg_key__", 0, KW_REQUIRED)
-            );
-        }
-//         send_ack(
-//             gobj,
-//             kw_ack, // owned
-//             __temp__ // owned, Set the channel
-//         );
+    if(result == 0) { // Send ack always
     }
 
     KW_DECREF(kw);
@@ -435,11 +417,14 @@ PRIVATE json_t *result_logout(
  ***************************************************************************/
 PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
 
     if(result < 0) {
     }
 
+    EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
     // TODO publish EV_ON_TOKEN
 
     KW_DECREF(kw);
@@ -451,6 +436,9 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
+    if(gobj_is_volatil(src)) {
+        gobj_destroy(src);
+    }
     KW_DECREF(kw);
     return 0;
 }
