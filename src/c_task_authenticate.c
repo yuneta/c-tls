@@ -337,7 +337,13 @@ PRIVATE json_t *result_get_token(
 {
     int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
     if(response_status_code != 200) {
-        // TODO log error
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_PARAMETER_ERROR,
+            "msg",          "%s", "BAD url parsing",
+            NULL
+        );
         KW_DECREF(kw);
         STOP_TASK();
     }
