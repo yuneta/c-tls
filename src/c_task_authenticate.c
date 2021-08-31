@@ -53,7 +53,8 @@ SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         1,              "Get
 SDATA (ASN_JSON,        "crypto",           SDF_RD,         "{\"library\": \"openssl\"}", "Crypto config"),
 SDATA (ASN_OCTET_STR,   "token_endpoint",   SDF_RD,         "",             "OAuth2 Token EndPoint (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_id",          SDF_RD,         "",             "OAuth2 User Id (interactive jwt)"),
-SDATA (ASN_OCTET_STR,   "client_id",        SDF_RD,         "",             "OAuth2 client id (azp - authorized party ) (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "user_passw",       0,              "",             "OAuth2 User Password (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "azp",              SDF_RD,         "",             "OAuth2 Authorized Party  (jwt's azp field - interactive jwt)"),
 SDATA (ASN_POINTER,     "user_data",        0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,              0,              "subscriber of output-events. Not a child gobj."),
@@ -78,6 +79,12 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
  *              Private data
  *---------------------------------------------*/
 typedef struct _PRIVATE_DATA {
+    char schema[32];
+    char host[120];
+    char port[40];
+    char path[2*1024];
+    char query[4*1024];
+
     hgobj gobj_http;
 } PRIVATE_DATA;
 
@@ -142,11 +149,30 @@ PRIVATE int mt_start(hgobj gobj)
      *      Create http
      *-----------------------------*/
     const char *url = gobj_read_str_attr(gobj, "token_endpoint");
-    char schema[20]={0}, host[120]={0}, port[40]={0};
-    parse_http_url(url, schema, sizeof(schema), host, sizeof(host), port, sizeof(port), FALSE);
+    int r = parse_partial_http_url(url,
+        priv->schema, sizeof(priv->schema),
+        priv->host, sizeof(priv->host),
+        priv->port, sizeof(priv->port),
+        priv->path, sizeof(priv->path),
+        priv->query, sizeof(priv->query),
+        FALSE
+    );
+    if(r < 0) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_PARAMETER_ERROR,
+            "msg",          "%s", "BAD url parsing",
+            "url",          "%s", url,
+            NULL
+        );
+    }
+    if(priv->path[strlen(priv->path)-1]=='/') {
+        priv->path[strlen(priv->path)-1] = 0;
+    }
     BOOL secure = FALSE;
     json_t *jn_crypto = 0;
-    if(strcasecmp(schema, "https")==0 || strcasecmp(schema, "wss")==0) {
+    if(strcasecmp(priv->schema, "https")==0 || strcasecmp(priv->schema, "wss")==0) {
         secure = TRUE;
         jn_crypto = gobj_read_json_attr(gobj, "crypto");
     }
@@ -268,7 +294,7 @@ PRIVATE json_t *action_get_token(
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
-    const char *client_id = gobj_read_str_attr(gobj, "client_id");
+    const char *azp= gobj_read_str_attr(gobj, "azp");
     const char *user_id = gobj_read_str_attr(gobj, "user_id");
     const char *user_passw = gobj_read_str_attr(gobj, "user_passw");
 
@@ -276,35 +302,27 @@ PRIVATE json_t *action_get_token(
         "Content-Type", "application/x-www-form-urlencoded"
     );
 
-    json_t *jn_form_data = json_pack("{s:s, s:s, s:s, s:s}",
+    json_t *jn_data = json_pack("{s:s, s:s, s:s, s:s}",
         "username", user_id,
         "password", user_passw,
         "grant_type", "password",
-        "client_id", client_id
+        "client_id", azp
     );
     if (offline_access) {
-        json_object_set_new(jn_form_data, "scope", json_string( "openid offline_access"));
+        json_object_set_new(jn_data, "scope", json_string( "openid offline_access"));
     }
 
-//     for k in form_data:
-//         v = form_data[k]
-//         if not data:
-//             data += """%s=%s""" % (k,v)
-//         else:
-//             data += """&%s=%s""" % (k,v)
-
-//     resp = requests.post(url, headers=headers, data=data, verify=False)
-
-    json_t *query = json_pack("{s:s, s:o, s:o}",
+    json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
         "method", "POST",
+        "resource", priv->path,
+        "query", "",
         "headers", jn_headers,
-        "data", jn_form_data
-        //"verify", FALSE TODO?
+        "data", jn_data
     );
     gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
 
     KW_DECREF(kw);
-    return (void *)0; // continue
+    CONTINUE_TASK();
 }
 
 /***************************************************************************
@@ -317,7 +335,14 @@ PRIVATE json_t *result_get_token(
     hgobj src
 )
 {
-/*
+    int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
+    if(response_status_code != 200) {
+        // TODO log error
+        KW_DECREF(kw);
+        STOP_TASK();
+    }
+
+    /*
     if resp.status_code != 200:
         print("- '" + repr(cmd) + "': [bright_white on red]Code " + \
             str(resp.status_code) + " " + resp.text + " [/]")
@@ -334,11 +359,12 @@ PRIVATE json_t *result_get_token(
 */
 
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-    if(result == 0) { // Send ack always
-    }
-
     KW_DECREF(kw);
-    return (void *)(size_t)result;
+    if(result == 0) {
+        CONTINUE_TASK();
+    } else {
+        STOP_TASK();
+    }
 }
 
 /***************************************************************************
@@ -379,7 +405,7 @@ PRIVATE json_t *action_logout(
     */
 
     KW_DECREF(kw);
-    return (void *)0; // continue
+    CONTINUE_TASK();
 }
 
 /***************************************************************************
@@ -402,7 +428,7 @@ PRIVATE json_t *result_logout(
 
 
     KW_DECREF(kw);
-    return (void *)(size_t)result;
+    CONTINUE_TASK();
 }
 
 
