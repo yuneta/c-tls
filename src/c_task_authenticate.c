@@ -3,6 +3,116 @@
  *          Task_authenticate GClass.
  *
  *          Task to authenticate with OAuth2
+Example of id_token
+-------------------
+
+{
+  "exp": 1973085502,
+  "iat": 1627485502,
+  "auth_time": 0,
+  "jti": "868d1822-53ea-41bc-9530-4d39a4443494",
+  "iss": "http://localhost:8281/auth/realms/mulesol",
+  "aud": "yunetacontrol",
+  "sub": "277f7140-5dde-4549-ae58-5284e5afb7db",
+  "typ": "ID",
+  "azp": "yunetacontrol",
+  "session_state": "8d192831-cfe1-4a25-a42e-4ea71f6f555d",
+  "at_hash": "vZbI642n7QbXGHK0MMqsDw",
+  "acr": "1",
+  "email_verified": true,
+  "name": "Yuneta Admin",
+  "preferred_username": "yuneta_admin@mulesol.es",
+  "locale": "es",
+  "given_name": "Yuneta Admin",
+  "family_name": "",
+  "email": "yuneta_admin@mulesol.es"
+}
+
+Example of access_token
+-----------------------
+
+{
+  "exp": 1973085502,
+  "iat": 1627485502,
+  "jti": "e3ebab65-2092-4f59-9498-561c5a72932a",
+  "iss": "http://localhost:8281/auth/realms/mulesol",
+  "aud": [
+    "realm-management",
+    "account"
+  ],
+  "sub": "277f7140-5dde-4549-ae58-5284e5afb7db",
+  "typ": "Bearer",
+  "azp": "yunetacontrol",
+  "session_state": "8d192831-cfe1-4a25-a42e-4ea71f6f555d",
+  "acr": "1",
+  "allowed-origins": [
+    "https://mulesol.yunetacontrol.com"
+  ],
+  "realm_access": {
+    "roles": [
+      "offline_access",
+      "uma_authorization",
+      "default-roles-mulesol"
+    ]
+  },
+  "resource_access": {
+    "realm-management": {
+      "roles": [
+        "view-realm",
+        "view-identity-providers",
+        "manage-identity-providers",
+        "impersonation",
+        "realm-admin",
+        "create-client",
+        "manage-users",
+        "query-realms",
+        "view-authorization",
+        "query-clients",
+        "query-users",
+        "manage-events",
+        "manage-realm",
+        "view-events",
+        "view-users",
+        "view-clients",
+        "manage-authorization",
+        "manage-clients",
+        "query-groups"
+      ]
+    },
+    "account": {
+      "roles": [
+        "manage-account",
+        "manage-account-links",
+        "view-profile"
+      ]
+    }
+  },
+  "scope": "openid profile offline_access email",
+  "email_verified": true,
+  "name": "Yuneta Admin",
+  "preferred_username": "yuneta_admin@mulesol.es",
+  "locale": "es",
+  "given_name": "Yuneta Admin",
+  "family_name": "",
+  "email": "yuneta_admin@mulesol.es"
+}
+
+Example of refresh_token
+------------------------
+
+{
+  "exp": 1973085502,
+  "iat": 1627485502,
+  "jti": "05365154-dfd7-4513-a48f-35015bb3746e",
+  "iss": "http://localhost:8281/auth/realms/mulesol",
+  "aud": "http://localhost:8281/auth/realms/mulesol",
+  "sub": "277f7140-5dde-4549-ae58-5284e5afb7db",
+  "typ": "Offline",
+  "azp": "yunetacontrol",
+  "session_state": "8d192831-cfe1-4a25-a42e-4ea71f6f555d",
+  "scope": "openid profile offline_access email"
+}
+
 
  *          Copyright (c) 2021 Niyamaka.
  *          All Rights Reserved.
@@ -161,7 +271,7 @@ PRIVATE int mt_start(hgobj gobj)
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_PARAMETER_ERROR,
+            "msgset",       "%s", MSGSET_TASK_ERROR,
             "msg",          "%s", "BAD url parsing",
             "url",          "%s", url,
             NULL
@@ -214,7 +324,7 @@ PRIVATE int mt_start(hgobj gobj)
             "]}",
         "gobj_jobs", (json_int_t)(size_t)gobj,
         "gobj_results", (json_int_t)(size_t)priv->gobj_http,
-        "input_data", json_object(),
+        "output_data", json_object(),
         "jobs",
             "exec_action", "action_get_token",
             "exec_result", "result_get_token"
@@ -288,7 +398,7 @@ PRIVATE json_t *action_get_token(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
-    hgobj src
+    hgobj src // Source is the GCLASS_TASK
 )
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
@@ -332,45 +442,99 @@ PRIVATE json_t *result_get_token(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
-    hgobj src
+    hgobj src // Source is the GCLASS_TASK
 )
 {
+    /*------------------------------------*
+     *  Http level
+     *------------------------------------*/
     int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
     if(response_status_code != 200) {
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_PARAMETER_ERROR,
-            "msg",          "%s", "BAD url parsing",
+            "msgset",       "%s", MSGSET_TASK_ERROR,
+            "msg",          "%s", "Oauth2 authentication failed",
+            "http error",   "%d", http_status_str(response_status_code),
             NULL
         );
         KW_DECREF(kw);
         STOP_TASK();
     }
 
-    /*
-    if resp.status_code != 200:
-        print("- '" + repr(cmd) + "': [bright_white on red]Code " + \
-            str(resp.status_code) + " " + resp.text + " [/]")
-        os._exit(-1)
+    int request_method = kw_get_int(kw, "request_method", 0, KW_REQUIRED);
+    if(request_method) {} // to avoid compilation warning
 
-    r = resp.json()
-    access_token = r["access_token"]
-    refresh_token = r["refresh_token"]
-    if "id_token" in r:
-        id_token = r["id_token"]
-    else:
-        id_token = ""
-    expires_in = int(r["expires_in"])
-*/
+    json_t *jn_header_ = kw_get_dict(kw, "headers", 0, KW_REQUIRED);
+    if(jn_header_) {} // to avoid compilation warning
 
-    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-    KW_DECREF(kw);
-    if(result == 0) {
-        CONTINUE_TASK();
-    } else {
+    json_t *jn_body_ = kw_get_dict(kw, "body", 0, KW_REQUIRED);
+    if(!jn_body_) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_TASK_ERROR,
+            "msg",          "%s", "Oauth2 response without body",
+            NULL
+        );
+        log_debug_json(0, kw, "Oauth2 response without body");
+        KW_DECREF(kw);
         STOP_TASK();
     }
+
+    /*-----------------------------------------------*
+     *  Response level: keycloak response to login
+     *-----------------------------------------------*/
+    json_t *jn_response_ = jn_body_;
+
+    const char *access_token = kw_get_str(jn_response_, "access_token", "", KW_REQUIRED);
+    if(access_token) {} // to avoid compilation warning
+
+    const char *refresh_token = kw_get_str(jn_response_, "refresh_token", "", KW_REQUIRED);
+    if(refresh_token) {} // to avoid compilation warning
+
+    const char *id_token = kw_get_str(jn_response_, "id_token", "", 0); // Only in offline requests
+    if(id_token) {} // to avoid compilation warning
+
+    json_int_t expires_in = kw_get_int(jn_response_, "expires_in", 0, KW_REQUIRED);
+    if(expires_in) {} // to avoid compilation warning
+
+    json_int_t refresh_expires_in = kw_get_int(jn_response_, "refresh_expires_in", 0, KW_REQUIRED);
+    if(refresh_expires_in) {} // to avoid compilation warning
+
+    const char *token_type = kw_get_str(jn_response_, "token_type", "", KW_REQUIRED);
+    if(token_type) {} // to avoid compilation warning
+
+    json_int_t not_before_policy = kw_get_int(jn_response_, "not-before-policy", 0, 0);
+    if(not_before_policy) {} // to avoid compilation warning
+
+    const char *session_state = kw_get_str(jn_response_, "session_state", "", KW_REQUIRED);
+    if(session_state) {} // to avoid compilation warning
+
+    const char *scope = kw_get_str(jn_response_, "scope", "", KW_REQUIRED);
+    if(scope) {} // to avoid compilation warning
+
+    if(!empty_string(id_token)) {
+        json_t *output_data = gobj_read_json_attr(src, "output_data");
+        json_object_set_new(output_data, "jwt", json_string(id_token));
+    } else if(!empty_string(access_token)) {
+        json_t *output_data = gobj_read_json_attr(src, "output_data");
+        json_object_set_new(output_data, "jwt", json_string(access_token));
+    } else {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_TASK_ERROR,
+            "msg",          "%s", "Oauth2 response without id_token or access_token",
+            NULL
+        );
+        log_debug_json(0, kw, "Oauth2 response without id_token or access_token");
+        KW_DECREF(kw);
+        STOP_TASK();
+    }
+
+    KW_DECREF(kw);
+    CONTINUE_TASK();
 }
 
 /***************************************************************************
@@ -380,7 +544,7 @@ PRIVATE json_t *action_logout(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
-    hgobj src
+    hgobj src // Source is the GCLASS_TASK
 )
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
@@ -421,7 +585,7 @@ PRIVATE json_t *result_logout(
     hgobj gobj,
     const char *lmethod,
     json_t *kw,
-    hgobj src
+    hgobj src // Source is the GCLASS_TASK
 )
 {
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
@@ -462,15 +626,17 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-
-    if(result < 0) {
-    }
+    const char *jwt = kw_get_str(kw, "output_data`jwt", 0, KW_REQUIRED);
 
     EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
-    // TODO publish EV_ON_TOKEN
+
+    json_t *kw_on_token = json_pack("{s:i, s:s}",
+        "result", result,
+        "jwt", json_string(jwt)
+    );
 
     KW_DECREF(kw);
-    return 0;
+    return gobj_publish_event(gobj, "EV_ON_TOKEN", kw_on_token);
 }
 
 /***************************************************************************
