@@ -632,7 +632,7 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
 
     json_t *kw_on_token = json_pack("{s:i, s:s}",
         "result", result,
-        "jwt", json_string(jwt)
+        "jwt", jwt
     );
 
     KW_DECREF(kw);
