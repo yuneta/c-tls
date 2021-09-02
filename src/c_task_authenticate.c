@@ -445,11 +445,18 @@ PRIVATE json_t *result_get_token(
     hgobj src // Source is the GCLASS_TASK
 )
 {
+    json_t *output_data = gobj_read_json_attr(src, "output_data");
+
     /*------------------------------------*
      *  Http level
      *------------------------------------*/
     int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
     if(response_status_code != 200) {
+        json_object_set_new(
+            output_data,
+            "comment",
+            json_sprintf("OAuth2 http response error: %d", response_status_code)
+        );
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
@@ -470,6 +477,11 @@ PRIVATE json_t *result_get_token(
 
     json_t *jn_body_ = kw_get_dict(kw, "body", 0, KW_REQUIRED);
     if(!jn_body_) {
+        json_object_set_new(
+            output_data,
+            "comment",
+            json_sprintf("http response with no body")
+        );
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
@@ -515,12 +527,11 @@ PRIVATE json_t *result_get_token(
     if(scope) {} // to avoid compilation warning
 
     if(!empty_string(id_token)) {
-        json_t *output_data = gobj_read_json_attr(src, "output_data");
         json_object_set_new(output_data, "jwt", json_string(id_token));
     } else if(!empty_string(access_token)) {
-        json_t *output_data = gobj_read_json_attr(src, "output_data");
         json_object_set_new(output_data, "jwt", json_string(access_token));
     } else {
+        json_object_set_new(output_data, "comment", json_string("No access token in response"));
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
@@ -627,11 +638,13 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
 
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
     const char *jwt = kw_get_str(kw, "output_data`jwt", 0, KW_REQUIRED);
+    const char *comment = kw_get_str(kw, "output_data`comment", "", 0);
 
     EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
 
-    json_t *kw_on_token = json_pack("{s:i, s:s}",
+    json_t *kw_on_token = json_pack("{s:i, s:s, s:s}",
         "result", result,
+        "comment", comment,
         "jwt", jwt
     );
 
