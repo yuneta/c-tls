@@ -455,15 +455,7 @@ PRIVATE json_t *result_get_token(
         json_object_set_new(
             output_data,
             "comment",
-            json_sprintf("OAuth2 http response error: %d", response_status_code)
-        );
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_TASK_ERROR,
-            "msg",          "%s", "Oauth2 authentication failed",
-            "http error",   "%d", http_status_str(response_status_code),
-            NULL
+            json_sprintf("Check your user and password: %s", http_status_str(response_status_code))
         );
         KW_DECREF(kw);
         STOP_TASK();
@@ -637,8 +629,8 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-    const char *jwt = kw_get_str(kw, "output_data`jwt", 0, KW_REQUIRED);
     const char *comment = kw_get_str(kw, "output_data`comment", "", 0);
+    const char *jwt = kw_get_str(kw, "output_data`jwt", "", 0);
 
     EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
 
