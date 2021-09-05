@@ -320,14 +320,17 @@ PRIVATE int mt_start(hgobj gobj)
      *-----------------------------*/
     json_t *kw_task = json_pack(
         "{s:I, s:I, s:o, s:["
+            "{s:s, s:s},"
             "{s:s, s:s}"
-            "]}",
+        "]}",
         "gobj_jobs", (json_int_t)(size_t)gobj,
         "gobj_results", (json_int_t)(size_t)priv->gobj_http,
         "output_data", json_object(),
         "jobs",
             "exec_action", "action_get_token",
             "exec_result", "result_get_token"
+            "exec_action", "action_logout",
+            "exec_result", "result_logout"
     );
 
     hgobj gobj_task = gobj_create(gobj_name(gobj), GCLASS_TASK, kw_task, gobj);
@@ -385,6 +388,36 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 
 
             /***************************
+             *      Local Methods
+             ***************************/
+
+
+
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE int publish_token(
+    hgobj gobj,
+    int result,
+    json_t *kw_)
+{
+    const char *comment = kw_get_str(kw_, "output_data`comment", "", 0);
+    const char *jwt = kw_get_str(kw_, "output_data`jwt", "", 0);
+
+    json_t *kw_on_token = json_pack("{s:i, s:s, s:s}",
+        "result", result,
+        "comment", comment,
+        "jwt", jwt
+    );
+
+    return gobj_publish_event(gobj, "EV_ON_TOKEN", kw_on_token);
+}
+
+
+
+
+            /***************************
              *      Jobs
              ***************************/
 
@@ -436,7 +469,8 @@ PRIVATE json_t *action_get_token(
 }
 
 /***************************************************************************
- *
+ *  In this result will publish token.
+ *  Actions will continue to do logout if necessary.
  ***************************************************************************/
 PRIVATE json_t *result_get_token(
     hgobj gobj,
@@ -445,7 +479,7 @@ PRIVATE json_t *result_get_token(
     hgobj src // Source is the GCLASS_TASK
 )
 {
-    json_t *output_data = gobj_read_json_attr(src, "output_data");
+    json_t *output_data_ = gobj_read_json_attr(src, "output_data");
 
     /*------------------------------------*
      *  Http level
@@ -453,10 +487,13 @@ PRIVATE json_t *result_get_token(
     int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
     if(response_status_code != 200) {
         json_object_set_new(
-            output_data,
+            output_data_,
             "comment",
             json_sprintf("Check your user and password: %s", http_status_str(response_status_code))
         );
+
+        publish_token(gobj, -1, output_data_);
+
         KW_DECREF(kw);
         STOP_TASK();
     }
@@ -470,7 +507,7 @@ PRIVATE json_t *result_get_token(
     json_t *jn_body_ = kw_get_dict(kw, "body", 0, KW_REQUIRED);
     if(!jn_body_) {
         json_object_set_new(
-            output_data,
+            output_data_,
             "comment",
             json_sprintf("http response with no body")
         );
@@ -482,6 +519,9 @@ PRIVATE json_t *result_get_token(
             NULL
         );
         log_debug_json(0, kw, "Oauth2 response without body");
+
+        publish_token(gobj, -1, output_data_);
+
         KW_DECREF(kw);
         STOP_TASK();
     }
@@ -519,11 +559,13 @@ PRIVATE json_t *result_get_token(
     if(scope) {} // to avoid compilation warning
 
     if(!empty_string(id_token)) {
-        json_object_set_new(output_data, "jwt", json_string(id_token));
+        json_object_set_new(output_data_, "comment", json_string("Id Token"));
+        json_object_set_new(output_data_, "jwt", json_string(id_token));
     } else if(!empty_string(access_token)) {
-        json_object_set_new(output_data, "jwt", json_string(access_token));
+        json_object_set_new(output_data_, "comment", json_string("Access Token"));
+        json_object_set_new(output_data_, "jwt", json_string(access_token));
     } else {
-        json_object_set_new(output_data, "comment", json_string("No access token in response"));
+        json_object_set_new(output_data_, "comment", json_string("No access token in response"));
         log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
@@ -532,9 +574,14 @@ PRIVATE json_t *result_get_token(
             NULL
         );
         log_debug_json(0, kw, "Oauth2 response without id_token or access_token");
+
+        publish_token(gobj, -1, output_data_);
+
         KW_DECREF(kw);
         STOP_TASK();
     }
+
+    // TODO publish_token(gobj, 0, output_data_);
 
     KW_DECREF(kw);
     CONTINUE_TASK();
@@ -608,13 +655,6 @@ PRIVATE json_t *result_logout(
 
 
             /***************************
-             *      Local Methods
-             ***************************/
-
-
-
-
-            /***************************
              *      Actions
              ***************************/
 
@@ -622,7 +662,7 @@ PRIVATE json_t *result_logout(
 
 
 /***************************************************************************
- *
+ *  The token already was published, here only close task.
  ***************************************************************************/
 PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
