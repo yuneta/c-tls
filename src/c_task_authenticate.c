@@ -2,7 +2,8 @@
  *          C_TASK_AUTHENTICATE.C
  *          Task_authenticate GClass.
  *
- *          Task to authenticate with OAuth2
+ *          Task to authenticate with OAuth2 against keycloak (WARNING by now only tested in keycloak)
+
 Example of id_token
 -------------------
 
@@ -161,7 +162,9 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
 SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         1,              "Get offline token"),
 SDATA (ASN_JSON,        "crypto",           SDF_RD,         "{\"library\": \"openssl\"}", "Crypto config"),
-SDATA (ASN_OCTET_STR,   "token_endpoint",   SDF_RD,         "",             "OAuth2 Token EndPoint (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "auth_system",      SDF_RD,         "keycloak",     "OAuth2 System (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "auth_url",         SDF_RD,         "",             "OAuth2 Server Url (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "auth_owner",       SDF_RD,         "",             "OAuth2 Owner (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_id",          SDF_RD,         "",             "OAuth2 User Id (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_passw",       0,              "",             "OAuth2 User Password (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "azp",              SDF_RD,         "",             "OAuth2 Authorized Party  (jwt's azp field - interactive jwt)"),
@@ -258,8 +261,8 @@ PRIVATE int mt_start(hgobj gobj)
     /*-----------------------------*
      *      Create http
      *-----------------------------*/
-    const char *url = gobj_read_str_attr(gobj, "token_endpoint");
-    int r = parse_partial_http_url(url,
+    const char *auth_url = gobj_read_str_attr(gobj, "auth_url");
+    int r = parse_partial_http_url(auth_url,
         priv->schema, sizeof(priv->schema),
         priv->host, sizeof(priv->host),
         priv->port, sizeof(priv->port),
@@ -273,7 +276,7 @@ PRIVATE int mt_start(hgobj gobj)
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_TASK_ERROR,
             "msg",          "%s", "BAD url parsing",
-            "url",          "%s", url,
+            "url",          "%s", auth_url,
             NULL
         );
     }
@@ -292,7 +295,7 @@ PRIVATE int mt_start(hgobj gobj)
         GCLASS_PROT_HTTP_CLI,
         json_pack("{s:I, s:s}",
             "subscriber", (json_int_t)0,
-            "url", url
+            "url", auth_url
         ),
         gobj
     );
@@ -307,8 +310,8 @@ PRIVATE int mt_start(hgobj gobj)
             gobj_name(gobj),
             secure?GCLASS_CONNEXS:GCLASS_CONNEX,
             secure?
-                json_pack("{s:[s], s:O}", "urls", url, "crypto", jn_crypto):
-                json_pack("{s:[s]}", "urls", url),
+                json_pack("{s:[s], s:O}", "urls", auth_url, "crypto", jn_crypto):
+                json_pack("{s:[s]}", "urls", auth_url),
             priv->gobj_http
         )
     );
@@ -320,7 +323,7 @@ PRIVATE int mt_start(hgobj gobj)
      *-----------------------------*/
     json_t *kw_task = json_pack(
         "{s:I, s:I, s:o, s:["
-            "{s:s, s:s},"
+//             "{s:s, s:s},"
             "{s:s, s:s}"
         "]}",
         "gobj_jobs", (json_int_t)(size_t)gobj,
@@ -329,8 +332,8 @@ PRIVATE int mt_start(hgobj gobj)
         "jobs",
             "exec_action", "action_get_token",
             "exec_result", "result_get_token"
-            "exec_action", "action_logout",
-            "exec_result", "result_logout"
+//             "exec_action", "action_logout",
+//             "exec_result", "result_logout"
     );
 
     hgobj gobj_task = gobj_create(gobj_name(gobj), GCLASS_TASK, kw_task, gobj);
@@ -402,8 +405,8 @@ PRIVATE int publish_token(
     int result,
     json_t *kw_)
 {
-    const char *comment = kw_get_str(kw_, "output_data`comment", "", 0);
-    const char *jwt = kw_get_str(kw_, "output_data`jwt", "", 0);
+    const char *comment = kw_get_str(kw_, "comment", "", 0);
+    const char *jwt = kw_get_str(kw_, "jwt", "", 0);
 
     json_t *kw_on_token = json_pack("{s:i, s:s, s:s}",
         "result", result,
@@ -437,9 +440,18 @@ PRIVATE json_t *action_get_token(
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
+    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
     const char *azp= gobj_read_str_attr(gobj, "azp");
     const char *user_id = gobj_read_str_attr(gobj, "user_id");
     const char *user_passw = gobj_read_str_attr(gobj, "user_passw");
+
+    char resource[PATH_MAX];
+    snprintf(
+        resource, sizeof(resource),
+        "%s/realms/%s/protocol/openid-connect/token",
+        priv->path,
+        auth_owner
+    );
 
     json_t *jn_headers = json_pack("{s:s}",
         "Content-Type", "application/x-www-form-urlencoded"
@@ -457,7 +469,7 @@ PRIVATE json_t *action_get_token(
 
     json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
         "method", "POST",
-        "resource", priv->path,
+        "resource", resource,
         "query", "",
         "headers", jn_headers,
         "data", jn_data
@@ -469,7 +481,7 @@ PRIVATE json_t *action_get_token(
 }
 
 /***************************************************************************
- *  In this result will publish token.
+ *  HACK In this result will publish token.
  *  Actions will continue to do logout if necessary.
  ***************************************************************************/
 PRIVATE json_t *result_get_token(
@@ -581,7 +593,7 @@ PRIVATE json_t *result_get_token(
         STOP_TASK();
     }
 
-    // TODO publish_token(gobj, 0, output_data_);
+    publish_token(gobj, 0, output_data_);
 
     KW_DECREF(kw);
     CONTINUE_TASK();
@@ -624,6 +636,8 @@ PRIVATE json_t *action_logout(
         resp = requests.post(url, headers=headers, data=data, verify=False)
     */
 
+
+
     KW_DECREF(kw);
     CONTINUE_TASK();
 }
@@ -638,13 +652,24 @@ PRIVATE json_t *result_logout(
     hgobj src // Source is the GCLASS_TASK
 )
 {
-    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-/*
-        if resp.status_code != 204:
-            print("- '" + repr(cmd) + "': [bright_white on red]Code " + \
-                str(resp.status_code) + " " + resp.text + " [/]")
-            os._exit(-1)
-*/
+    /*------------------------------------*
+     *  Http level
+     *------------------------------------*/
+    int response_status_code = kw_get_int(kw, "response_status_code", -1, KW_REQUIRED);
+    if(response_status_code != 204) {
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_TASK_ERROR,
+            "msg",          "%s", "Logout has failed",
+            "status_code",  "%d", response_status_code,
+            NULL
+        );
+        log_debug_json(0, kw, "Logout has failed");
+
+        KW_DECREF(kw);
+        STOP_TASK();
+    }
 
 
     KW_DECREF(kw);
@@ -668,20 +693,10 @@ PRIVATE int ac_end_task(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    int result = kw_get_int(kw, "result", -1, KW_REQUIRED);
-    const char *comment = kw_get_str(kw, "output_data`comment", "", 0);
-    const char *jwt = kw_get_str(kw, "output_data`jwt", "", 0);
-
     EXEC_AND_RESET(gobj_stop_tree, priv->gobj_http);
 
-    json_t *kw_on_token = json_pack("{s:i, s:s, s:s}",
-        "result", result,
-        "comment", comment,
-        "jwt", jwt
-    );
-
     KW_DECREF(kw);
-    return gobj_publish_event(gobj, "EV_ON_TOKEN", kw_on_token);
+    return 0;
 }
 
 /***************************************************************************
