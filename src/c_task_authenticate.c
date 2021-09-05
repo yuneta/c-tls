@@ -323,7 +323,7 @@ PRIVATE int mt_start(hgobj gobj)
      *-----------------------------*/
     json_t *kw_task = json_pack(
         "{s:I, s:I, s:o, s:["
-//             "{s:s, s:s},"
+            "{s:s, s:s},"
             "{s:s, s:s}"
         "]}",
         "gobj_jobs", (json_int_t)(size_t)gobj,
@@ -331,9 +331,9 @@ PRIVATE int mt_start(hgobj gobj)
         "output_data", json_object(),
         "jobs",
             "exec_action", "action_get_token",
-            "exec_result", "result_get_token"
-//             "exec_action", "action_logout",
-//             "exec_result", "result_logout"
+            "exec_result", "result_get_token",
+            "exec_action", "action_logout",
+            "exec_result", "result_logout"
     );
 
     hgobj gobj_task = gobj_create(gobj_name(gobj), GCLASS_TASK, kw_task, gobj);
@@ -444,37 +444,42 @@ PRIVATE json_t *action_get_token(
     const char *azp= gobj_read_str_attr(gobj, "azp");
     const char *user_id = gobj_read_str_attr(gobj, "user_id");
     const char *user_passw = gobj_read_str_attr(gobj, "user_passw");
+    const char *auth_system = gobj_read_str_attr(gobj, "auth_system");
+    SWITCHS(auth_system) {
+        CASES("keycloak")
+        DEFAULTS
+            char resource[PATH_MAX];
+            snprintf(
+                resource, sizeof(resource),
+                "%s/realms/%s/protocol/openid-connect/token",
+                priv->path,
+                auth_owner
+            );
 
-    char resource[PATH_MAX];
-    snprintf(
-        resource, sizeof(resource),
-        "%s/realms/%s/protocol/openid-connect/token",
-        priv->path,
-        auth_owner
-    );
+            json_t *jn_headers = json_pack("{s:s}",
+                "Content-Type", "application/x-www-form-urlencoded"
+            );
 
-    json_t *jn_headers = json_pack("{s:s}",
-        "Content-Type", "application/x-www-form-urlencoded"
-    );
+            json_t *jn_data = json_pack("{s:s, s:s, s:s, s:s}",
+                "username", user_id,
+                "password", user_passw,
+                "grant_type", "password",
+                "client_id", azp
+            );
+            if (offline_access) {
+                json_object_set_new(jn_data, "scope", json_string( "openid offline_access"));
+            }
 
-    json_t *jn_data = json_pack("{s:s, s:s, s:s, s:s}",
-        "username", user_id,
-        "password", user_passw,
-        "grant_type", "password",
-        "client_id", azp
-    );
-    if (offline_access) {
-        json_object_set_new(jn_data, "scope", json_string( "openid offline_access"));
-    }
-
-    json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
-        "method", "POST",
-        "resource", resource,
-        "query", "",
-        "headers", jn_headers,
-        "data", jn_data
-    );
-    gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
+            json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
+                "method", "POST",
+                "resource", resource,
+                "query", "",
+                "headers", jn_headers,
+                "data", jn_data
+            );
+            gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
+            break;
+    } SWITCHS_END;
 
     KW_DECREF(kw);
     CONTINUE_TASK();
@@ -501,7 +506,7 @@ PRIVATE json_t *result_get_token(
         json_object_set_new(
             output_data_,
             "comment",
-            json_sprintf("Check your user and password: %s", http_status_str(response_status_code))
+            json_sprintf("Check your user or password: %s", http_status_str(response_status_code))
         );
 
         publish_token(gobj, -1, output_data_);
@@ -611,7 +616,46 @@ PRIVATE json_t *action_logout(
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-/*
+    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
+    const char *jwt= gobj_read_str_attr(gobj, "jwt");
+    const char *auth_system = gobj_read_str_attr(gobj, "auth_system");
+    SWITCHS(auth_system) {
+        CASES("keycloak")
+        DEFAULTS
+            char resource[PATH_MAX];
+            snprintf(
+                resource, sizeof(resource),
+                "%s/realms/%s/protocol/openid-connect/logout",
+                priv->path,
+                auth_owner
+            );
+
+            json_t *jn_headers = json_pack("{s:s}",
+                "Content-Type", "application/x-www-form-urlencoded"
+            );
+
+            char authorization[1024];
+            snprintf(authorization, sizeof(authorization), "Bearer %s", jwt);
+
+
+            json_t *jn_data = json_pack("{s:s, s:s}",
+                "Authorization", authorization,
+                "Connection", "close"
+            );
+
+            json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
+                "method", "POST",
+                "resource", resource,
+                "query", "",
+                "headers", jn_headers,
+                "data", jn_data
+            );
+            gobj_send_event(priv->gobj_http, "EV_SEND_MESSAGE", query, gobj);
+            break;
+    } SWITCHS_END;
+
+
+    /*
         url = keycloak_base_url + "/auth/realms/" + keycloak_realm_name + "/protocol/openid-connect/logout"
 
         cmd = "Logout ==> POST " + url
@@ -663,6 +707,7 @@ PRIVATE json_t *result_logout(
             "msgset",       "%s", MSGSET_TASK_ERROR,
             "msg",          "%s", "Logout has failed",
             "status_code",  "%d", response_status_code,
+            "status",       "%s", http_status_str(response_status_code),
             NULL
         );
         log_debug_json(0, kw, "Logout has failed");
