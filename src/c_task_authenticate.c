@@ -168,6 +168,8 @@ SDATA (ASN_OCTET_STR,   "auth_owner",       SDF_RD,         "",             "OAu
 SDATA (ASN_OCTET_STR,   "user_id",          SDF_RD,         "",             "OAuth2 User Id (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_passw",       0,              "",             "OAuth2 User Password (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "azp",              SDF_RD,         "",             "OAuth2 Authorized Party  (jwt's azp field - interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "access_token",     0,              "",             "Access token"),
+SDATA (ASN_OCTET_STR,   "refresh_token",    0,              "",             "Refresh token"),
 SDATA (ASN_POINTER,     "user_data",        0,              0,              "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,              0,              "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,              0,              "subscriber of output-events. Not a child gobj."),
@@ -598,6 +600,9 @@ PRIVATE json_t *result_get_token(
         STOP_TASK();
     }
 
+    gobj_write_str_attr(gobj, "access_token", access_token); // Needed for logout
+    gobj_write_str_attr(gobj, "refresh_token", refresh_token);
+
     publish_token(gobj, 0, output_data_);
 
     KW_DECREF(kw);
@@ -616,9 +621,12 @@ PRIVATE json_t *action_logout(
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
-    const char *jwt= gobj_read_str_attr(gobj, "jwt");
     const char *auth_system = gobj_read_str_attr(gobj, "auth_system");
+    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
+    const char *azp = gobj_read_str_attr(gobj, "azp");
+    const char *access_token = gobj_read_str_attr(gobj, "access_token");
+    const char *refresh_token = gobj_read_str_attr(gobj, "refresh_token");
+
     SWITCHS(auth_system) {
         CASES("keycloak")
         DEFAULTS
@@ -630,17 +638,18 @@ PRIVATE json_t *action_logout(
                 auth_owner
             );
 
-            json_t *jn_headers = json_pack("{s:s}",
-                "Content-Type", "application/x-www-form-urlencoded"
-            );
-
             char authorization[1024];
-            snprintf(authorization, sizeof(authorization), "Bearer %s", jwt);
+            snprintf(authorization, sizeof(authorization), "Bearer %s", access_token);
 
-
-            json_t *jn_data = json_pack("{s:s, s:s}",
+            json_t *jn_headers = json_pack("{s:s, s:s, s:s}",
+                "Content-Type", "application/x-www-form-urlencoded",
                 "Authorization", authorization,
                 "Connection", "close"
+            );
+
+            json_t *jn_data = json_pack("{s:s, s:s}",
+                "refresh_token", refresh_token,
+                "client_id",  azp
             );
 
             json_t *query = json_pack("{s:s, s:s, s:s, s:o, s:o}",
@@ -715,7 +724,6 @@ PRIVATE json_t *result_logout(
         KW_DECREF(kw);
         STOP_TASK();
     }
-
 
     KW_DECREF(kw);
     CONTINUE_TASK();
