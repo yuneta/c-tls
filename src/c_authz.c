@@ -217,7 +217,7 @@ PRIVATE void mt_create(hgobj gobj)
             &priv->verify,
             "pubkey",
             pubkey,
-            "verify.exp=required&expiry=300"
+            "verify.exp=required&expiry=300&verify.iat=skip"
             //"verify.exp=required&expiry=300&verify.iat.slack_before=300"
         );
         if(rv != NULL) {
