@@ -15,7 +15,6 @@
 #include <cjose/cjose.h>
 #include <oauth2/oauth2.h>
 #include <oauth2/mem.h>
-#include <uuid/uuid.h>
 #include "c_authz.h"
 
 #include "treedb_schema_authzs.c"
