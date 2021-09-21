@@ -160,7 +160,7 @@ SDATA_END()
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
-SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         1,              "Get offline token"),
+SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         0,              "Get offline token"),
 SDATA (ASN_JSON,        "crypto",           SDF_RD,         "{\"library\": \"openssl\"}", "Crypto config"),
 SDATA (ASN_OCTET_STR,   "auth_system",      SDF_RD,         "keycloak",     "OAuth2 System (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "auth_url",         SDF_RD,         "",             "OAuth2 Server Url (interactive jwt)"),
@@ -578,10 +578,10 @@ PRIVATE json_t *result_get_token(
     if(scope) {} // to avoid compilation warning
 
     if(!empty_string(id_token)) {
-        json_object_set_new(output_data_, "comment", json_string("Id Token"));
+        json_object_set_new(output_data_, "comment", json_string("Id Token Ok"));
         json_object_set_new(output_data_, "jwt", json_string(id_token));
     } else if(!empty_string(access_token)) {
-        json_object_set_new(output_data_, "comment", json_string("Access Token"));
+        json_object_set_new(output_data_, "comment", json_string("Access Token Ok"));
         json_object_set_new(output_data_, "jwt", json_string(access_token));
     } else {
         json_object_set_new(output_data_, "comment", json_string("No access token in response"));
