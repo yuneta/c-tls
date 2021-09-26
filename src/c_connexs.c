@@ -122,9 +122,14 @@ PRIVATE void mt_create(hgobj gobj)
     json_t *jn_crypto = gobj_read_json_attr(gobj, "crypto");
     priv->ytls = ytls_init(jn_crypto, FALSE);
 
-    json_t *kw_tcp1 = json_pack("{s:I}", "ytls", (json_int_t)(size_t)priv->ytls);
-    hgobj tcp0 = gobj_create(gobj_name(gobj), GCLASS_TCP1, kw_tcp1, gobj);
-    gobj_set_bottom_gobj(gobj, tcp0);
+    hgobj tcp0 = gobj_bottom_gobj(gobj);
+    if(!tcp0) {
+        json_t *kw_tcp1 = json_pack("{s:I}", "ytls", (json_int_t)(size_t)priv->ytls);
+        tcp0 = gobj_create(gobj_name(gobj), GCLASS_TCP1, kw_tcp1, gobj);
+        gobj_set_bottom_gobj(gobj, tcp0);
+    } else {
+        gobj_write_pointer_attr(tcp0, "ytls", priv->ytls);
+    }
 
     dl_init(&priv->dl_tx_data);
 
