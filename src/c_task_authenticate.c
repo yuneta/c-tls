@@ -324,12 +324,12 @@ PRIVATE int mt_start(hgobj gobj)
      *      Create the task
      *-----------------------------*/
     json_t *kw_task = json_pack(
-        "{s:I, s:I, s:o, s:["
+        "{s:o, s:o, s:o, s:["
             "{s:s, s:s},"
             "{s:s, s:s}"
         "]}",
-        "gobj_jobs", (json_int_t)(size_t)gobj,
-        "gobj_results", (json_int_t)(size_t)priv->gobj_http,
+        "gobj_jobs", json_integer((json_int_t)(size_t)gobj),
+        "gobj_results", json_integer((json_int_t)(size_t)priv->gobj_http),
         "output_data", json_object(),
         "jobs",
             "exec_action", "action_get_token",
