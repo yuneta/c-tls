@@ -294,16 +294,6 @@ PRIVATE BOOL get_next_dst(
             snprintf(lport, lport_len, "%s", p?p:"");
         }
 
-        /*
-         *
-         */
-        if(!isdigit(rhost[0])) {
-            char *ip = host2ip(rhost);
-            if(ip) {
-                snprintf(rhost, rhost_len, "%s", ip);
-            }
-        }
-
         // Point to next dst
         ++priv->idx_dst;
         priv->idx_dst = priv->idx_dst % priv->n_urls;
