@@ -2,7 +2,7 @@
  *          C_TCP1.C
  *          Tcp1 GClass.
  *
- *          GClass of TCP level 1 (SSL) mixin-uv
+ *          GClass of TCP level 1 (SSL) uv-mixin
  *
  *          Copyright (c) 2018 Niyamaka.
  *          All Rights Reserved.

@@ -2,7 +2,7 @@
  *          C_TCP_S1.C
  *          Tcp_S1 GClass.
  *
- *          TCP server level 1 (with SSL) mixin-uv
+ *          TCP server level 1 (with SSL) uv-mixin
  *
  *          Copyright (c) 2018 Niyamaka.
  *          All Rights Reserved.
