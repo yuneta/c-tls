@@ -69,6 +69,7 @@ PRIVATE topic_desc_t db_messages_desc[] = {
  ***************************************************************************/
 PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 
@@ -101,6 +102,7 @@ PRIVATE sdata_desc_t command_table[] = {
 /*-CMD---type-----------name----------------alias---------------items-----------json_fn---------description---------- */
 SDATACM (ASN_SCHEMA,    "help",             a_help,             pm_help,        cmd_help,       "Command's help"),
 SDATACM (ASN_SCHEMA,    "authzs",           0,                  pm_authzs,      cmd_authzs,     "Authorization's help"),
+SDATACM (ASN_SCHEMA,    "users",            0,                  0,              cmd_users,   "List users"),
 SDATACM (ASN_SCHEMA,    "user-roles",       0,                  pm_user_roles,  cmd_user_roles,     "Get roles of user"),
 SDATACM (ASN_SCHEMA,    "user-authzs",      0,                  pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
 SDATA_END()
@@ -755,6 +757,14 @@ PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 /***************************************************************************
  *
  ***************************************************************************/
+PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
 PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
@@ -779,7 +789,7 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
             "id", username
         ),
         "roles", // link
-        json_pack("{s:b}",
+        json_pack("{s:b, s:b}",
             "refs", 1,
             "with_metadata", 1
         ),
@@ -825,7 +835,7 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
             "id", username
         ),
         "roles", // link
-        json_pack("{s:b}",
+        json_pack("{s:b, s:b}",
             "list_dict", 1,
             "with_metadata", 1
         ),
@@ -838,7 +848,7 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
             priv->gobj_treedb,
             "roles", // topic_name
             json_incref(role_ref),
-            json_pack("{s:b}",
+            json_pack("{s:b, s:b}",
                 "list_dict", 1,
                 "with_metadata", 1
             ),
@@ -1083,7 +1093,7 @@ PRIVATE json_t *get_user_roles(
             "id", username
         ),
         "roles", // link
-        json_pack("{s:b}",
+        json_pack("{s:b, s:b}",
             "list_dict", 1,
             "with_metadata", 1
         ),
@@ -1101,7 +1111,7 @@ PRIVATE json_t *get_user_roles(
             priv->gobj_treedb,
             "roles", // topic_name
             json_incref(role_ref),
-            json_pack("{s:b}",
+            json_pack("{s:b, s:b}",
                 "list_dict", 1,
                 "with_metadata", 1
             ),
@@ -1253,7 +1263,7 @@ PRIVATE json_t *get_user_permissions(
             "id", username
         ),
         "roles", // link
-        json_pack("{s:b}",
+        json_pack("{s:b, s:b}",
             "list_dict", 1,
             "with_metadata", 1
         ),
@@ -1271,7 +1281,7 @@ PRIVATE json_t *get_user_permissions(
             priv->gobj_treedb,
             "roles", // topic_name
             json_incref(role_ref),
-            json_pack("{s:b}",
+            json_pack("{s:b, s:b}",
                 "list_dict", 1,
                 "with_metadata", 1
             ),
