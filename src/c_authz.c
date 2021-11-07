@@ -85,6 +85,10 @@ SDATAPM (ASN_OCTET_STR, "authz",        0,              0,          "permission 
 SDATAPM (ASN_OCTET_STR, "service",      0,              0,          "Service where to search the permission. If empty print all service's permissions"),
 SDATA_END()
 };
+PRIVATE sdata_desc_t pm_users[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATA_END()
+};
 PRIVATE sdata_desc_t pm_user_roles[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
 SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
@@ -102,7 +106,7 @@ PRIVATE sdata_desc_t command_table[] = {
 /*-CMD---type-----------name----------------alias---------------items-----------json_fn---------description---------- */
 SDATACM (ASN_SCHEMA,    "help",             a_help,             pm_help,        cmd_help,       "Command's help"),
 SDATACM (ASN_SCHEMA,    "authzs",           0,                  pm_authzs,      cmd_authzs,     "Authorization's help"),
-SDATACM (ASN_SCHEMA,    "users",            0,                  0,              cmd_users,   "List users"),
+SDATACM (ASN_SCHEMA,    "users",            0,                  pm_users,       cmd_users,   "List users"),
 SDATACM (ASN_SCHEMA,    "user-roles",       0,                  pm_user_roles,  cmd_user_roles,     "Get roles of user"),
 SDATACM (ASN_SCHEMA,    "user-authzs",      0,                  pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
 SDATA_END()
@@ -759,7 +763,29 @@ PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
+    json_t *jn_users = gobj_list_nodes(
+        priv->gobj_treedb,
+        "users",
+        json_incref(kw),
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
+    );
+
+    json_t *jn_data = kwid_get_ids(jn_users);
+    json_decref(jn_users);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        jn_data,
+        kw  // owned
+    );
 }
 
 /***************************************************************************
@@ -782,7 +808,7 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         );
     }
 
-    json_t *roles_refs = gobj_node_parents(
+    json_t *roles = gobj_node_parents(
         priv->gobj_treedb,
         "users", // topic_name
         json_pack("{s:s}",
@@ -801,7 +827,7 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         0,
         0,
         0,
-        roles_refs,
+        roles,
         kw  // owned
     );
 }
