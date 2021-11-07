@@ -80,7 +80,8 @@ SDATA_END()
 };
 PRIVATE sdata_desc_t pm_authzs[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
-SDATAPM (ASN_OCTET_STR, "authz",        0,              0,          "authz about you want help"),
+SDATAPM (ASN_OCTET_STR, "authz",        0,              0,          "permission to search"),
+SDATAPM (ASN_OCTET_STR, "service",      0,              0,          "Service where to search the permission. If empty print all service's permissions"),
 SDATA_END()
 };
 PRIVATE sdata_desc_t pm_user_roles[] = {
@@ -764,7 +765,7 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         return msg_iev_build_webix(
             gobj,
             -1,
-            json_local_sprintf("What username?"),
+            json_sprintf("What username?"),
             0,
             0,
             kw  // owned
@@ -808,7 +809,7 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
         return msg_iev_build_webix(
             gobj,
             -1,
-            json_local_sprintf("What username?"),
+            json_sprintf("What username?"),
             0,
             0,
             kw  // owned
@@ -928,7 +929,7 @@ PRIVATE void oauth2_log_callback(
             NULL
         );
     } else {
-        trace_msg(msg);
+        trace_msg("%s", msg);
     }
 }
 
