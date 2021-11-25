@@ -1034,7 +1034,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
         return -1;
     }
     if(priv->gbuf_txing) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_INTERNAL_ERROR,
@@ -1380,7 +1380,7 @@ PRIVATE int ac_send_encrypted_data(hgobj gobj, const char *event, json_t *kw, hg
          *  Salida prioritaria.
          */
         if(priv->gbuf_txing) {
-            log_error(0,
+            log_error(LOG_OPT_TRACE_STACK,
                 "gobj",         "%s", gobj_full_name(gobj),
                 "function",     "%s", __FUNCTION__,
                 "msgset",       "%s", MSGSET_INTERNAL_ERROR,
