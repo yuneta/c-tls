@@ -371,6 +371,7 @@ PRIVATE int ac_connect(hgobj gobj, const char *event, json_t *kw, hgobj src)
             "msg",          "%s", "NO bottom_gobj!",
             NULL
         );
+        set_timeout(priv->timer, gobj_read_int32_attr(gobj, "timeout_between_connections"));
     }
 
     KW_DECREF(kw);
