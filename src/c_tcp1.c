@@ -1369,7 +1369,7 @@ PRIVATE int ac_tx_clear_data(hgobj gobj, const char *event, json_t *kw, hgobj sr
     }
 
     KW_DECREF(kw);
-    return 1;
+    return 0;
 }
 
 /***************************************************************************
@@ -1402,7 +1402,7 @@ PRIVATE int ac_send_encrypted_data(hgobj gobj, const char *event, json_t *kw, hg
     }
 
     KW_DECREF(kw);
-    return 1;
+    return 0;
 }
 
 /***************************************************************************
@@ -1415,7 +1415,7 @@ PRIVATE int ac_enqueue_encrypted_data(hgobj gobj, const char *event, json_t *kw,
     gbuf_incref(gbuf); // Quédate una copia
     enqueue_write(gobj, gbuf);
     KW_DECREF(kw);
-    return 1;
+    return 0;
 }
 
 /***************************************************************************
@@ -1427,7 +1427,7 @@ PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
         gobj_stop(gobj);
     }
     KW_DECREF(kw);
-    return 1;
+    return 0;
 }
 
 /***************************************************************************
