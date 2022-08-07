@@ -8,10 +8,7 @@
  *          All Rights Reserved.
  ***********************************************************************/
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
 #include <string.h>
-#include <ctype.h>
 #include <netdb.h>
 #include "c_connexs.h"
 
@@ -27,10 +24,36 @@
  *              Prototypes
  ***************************************************************************/
 
-
 /***************************************************************************
  *          Data: config, public data, private data
  ***************************************************************************/
+PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_list_urls(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_add_url(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_remove_url(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+
+PRIVATE sdata_desc_t pm_help[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "cmd",          0,              0,          "command about you want help."),
+SDATAPM (ASN_UNSIGNED,  "level",        0,              0,          "command search level in childs"),
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_url[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "url",          0,              0,          "Url"),
+SDATA_END()
+};
+
+PRIVATE const char *a_help[] = {"h", "?", 0};
+
+PRIVATE sdata_desc_t command_table[] = {
+/*-CMD---type-----------name------------alias-------items-----------json_fn---------description---------- */
+SDATACM (ASN_SCHEMA,    "help",         a_help,     pm_help,        cmd_help,       "Command's help"),
+SDATACM (ASN_SCHEMA,    "list-urls",    0,          0,              cmd_list_urls,  "List urls"),
+SDATACM (ASN_SCHEMA,    "add-url",      0,          pm_url,         cmd_add_url,    "Add url"),
+SDATACM (ASN_SCHEMA,    "remove-url",   0,          pm_url,         cmd_remove_url, "Delete url"),
+SDATA_END()
+};
 
 /*---------------------------------------------*
  *      Attributes - order affect to oid's
@@ -73,7 +96,6 @@ PRIVATE const trace_level_t s_user_trace_level[16] = {
 {0, 0},
 };
 
-
 /*---------------------------------------------*
  *              Private data
  *---------------------------------------------*/
@@ -83,7 +105,6 @@ typedef struct _PRIVATE_DATA {
     int n_urls;
     json_t *urls;
     dl_list_t dl_tx_data;
-    ip_port ip_port;
 
     const char *connected_event_name;
     const char *tx_ready_event_name;
@@ -116,7 +137,7 @@ PRIVATE void mt_create(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    priv->timer = gobj_create("", GCLASS_TIMER, 0, gobj);
+    priv->timer = gobj_create(gobj_name(gobj), GCLASS_TIMER, 0, gobj);
 
     json_t *jn_crypto = gobj_read_json_attr(gobj, "crypto");
     priv->ytls = ytls_init(jn_crypto, FALSE);
@@ -192,13 +213,13 @@ PRIVATE int mt_start(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    hgobj tcp0 = gobj_bottom_gobj(gobj);
-    if(!tcp0) {
+    hgobj bottom_gobj = gobj_bottom_gobj(gobj);
+    if(!bottom_gobj) {
         json_t *kw_tcp1 = json_pack("{s:I}", "ytls", (json_int_t)(size_t)priv->ytls);
-        tcp0 = gobj_create(gobj_name(gobj), GCLASS_TCP1, kw_tcp1, gobj);
-        gobj_set_bottom_gobj(gobj, tcp0);
+        bottom_gobj = gobj_create(gobj_name(gobj), GCLASS_TCP1, kw_tcp1, gobj);
+        gobj_set_bottom_gobj(gobj, bottom_gobj);
     } else {
-        gobj_write_pointer_attr(tcp0, "ytls", priv->ytls);
+        gobj_write_pointer_attr(bottom_gobj, "ytls", priv->ytls);
     }
 
     // HACK el start de tcp0 lo hace el timer
@@ -243,6 +264,125 @@ PRIVATE void mt_destroy(hgobj gobj)
         }
     }
     EXEC_AND_RESET(ytls_cleanup, priv->ytls);
+}
+
+
+
+
+            /***************************
+             *      Commands
+             ***************************/
+
+
+
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    KW_INCREF(kw);
+    json_t *jn_resp = gobj_build_cmds_doc(gobj, kw);
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        jn_resp,
+        0,
+        0,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_list_urls(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        json_incref(priv->urls),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_add_url(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *url = kw_get_str(kw, "url", "", 0);
+    if(empty_string(url)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What url?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jn_urls = json_deep_copy(gobj_read_json_attr(gobj, "urls"));
+    json_array_append_new(jn_urls, json_string(url));
+    gobj_write_json_attr(gobj, "urls", jn_urls);
+    JSON_DECREF(jn_urls);
+
+    gobj_save_persistent_attrs(gobj, json_string("urls"));
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        json_incref(priv->urls),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_remove_url(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *url = kw_get_str(kw, "url", "", 0);
+    if(empty_string(url)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What url?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jn_urls = json_deep_copy(gobj_read_json_attr(gobj, "urls"));
+
+    size_t idx = json_list_str_index(jn_urls, url, TRUE);
+    json_array_remove(jn_urls, idx);
+
+    gobj_write_json_attr(gobj, "urls", jn_urls);
+    JSON_DECREF(jn_urls);
+
+    gobj_save_persistent_attrs(gobj, json_string("urls"));
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        json_incref(priv->urls),
+        kw  // owned
+    );
 }
 
 
@@ -319,7 +459,12 @@ PRIVATE BOOL get_next_dst(
 PRIVATE int ac_connect(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
-    char schema[20], rHost[120], rPort[40], lHost[120], lPort[40];
+    char schema[20]={0};
+    char rHost[120]={0};
+    char rPort[40]={0};
+    char lHost[120]={0};
+    char lPort[40]={0};
+
     get_next_dst(
         gobj,
         schema, sizeof(schema),
