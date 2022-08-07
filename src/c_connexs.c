@@ -960,7 +960,7 @@ PRIVATE GCLASS _gclass = {
     sizeof(PRIVATE_DATA),
     0,  // acl
     s_user_trace_level,
-    0,  // cmds
+    command_table, // cmds
     0,  // gcflag
 };
 
