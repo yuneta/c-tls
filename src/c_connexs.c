@@ -735,6 +735,36 @@ PRIVATE int ac_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
 /***************************************************************************
  *
  ***************************************************************************/
+PRIVATE int ac_force_drop(hgobj gobj, const char *event, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    hgobj bottom_gobj = gobj_bottom_gobj(gobj);
+    if (bottom_gobj) {
+        gobj_set_bottom_gobj(gobj, 0);
+        gobj_destroy(bottom_gobj);
+    }
+
+    json_t *kw_tcp1 = json_pack("{s:I}", "ytls", (json_int_t)(size_t)priv->ytls);
+    bottom_gobj = gobj_create(gobj_name(gobj), GCLASS_TCP1, kw_tcp1, gobj);
+    gobj_set_bottom_gobj(gobj, bottom_gobj);
+
+    if(!empty_string(priv->disconnected_event_name)) {
+        gobj_publish_event(gobj, priv->disconnected_event_name, 0);
+    }
+
+    set_timeout(
+        priv->timer,
+        gobj_read_int32_attr(gobj, "timeout_between_connections")
+    );
+
+    KW_DECREF(kw);
+    return 0;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
 PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
@@ -761,10 +791,10 @@ PRIVATE int ac_stopped(hgobj gobj, const char *event, json_t *kw, hgobj src)
  *                          FSM
  ***************************************************************************/
 PRIVATE const EVENT input_events[] = {
-    {"EV_CONNECTED",        0},
-    {"EV_DISCONNECTED",     0},
     {"EV_RX_DATA",          0},
     {"EV_TX_READY",         0},
+    {"EV_CONNECTED",        0},
+    {"EV_DISCONNECTED",     0},
     {"EV_STOPPED",          0},
 
     {"EV_DROP",             0},
@@ -775,10 +805,10 @@ PRIVATE const EVENT input_events[] = {
     {NULL, 0}
 };
 PRIVATE const EVENT output_events[] = {
-    {"EV_CONNECTED",        0},
-    {"EV_DISCONNECTED",     0},
     {"EV_RX_DATA",          0},
     {"EV_TX_READY",         0},
+    {"EV_CONNECTED",        0},
+    {"EV_DISCONNECTED",     0},
     {"EV_STOPPED",          0},
     {NULL, 0}
 };
@@ -819,6 +849,7 @@ PRIVATE EV_ACTION ST_CONNECTED[] = {
 };
 PRIVATE EV_ACTION ST_WAIT_DISCONNECTED[] = {
     {"EV_DISCONNECTED",     ac_disconnected,            "ST_DISCONNECTED"},
+    {"EV_DROP",             ac_force_drop,              "ST_DISCONNECTED"},
     {"EV_STOPPED",          ac_stopped,                 "ST_DISCONNECTED"},
     {"EV_TIMEOUT",          ac_stopped,                 "ST_DISCONNECTED"},
     {"EV_TX_READY",         ac_ignore_transmit_ready,   0},
