@@ -4,7 +4,7 @@
  *
  *          Auto-connection and multi-destine over tcp with tls
  *
- *          Copyright (c) 2018 Niyamaka.
+ *          Copyright (c) 2018-2022 Niyamaka.
  *          All Rights Reserved.
  ***********************************************************************/
 #include <sys/types.h>
