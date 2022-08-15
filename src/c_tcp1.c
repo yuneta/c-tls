@@ -25,7 +25,7 @@
 /***************************************************************************
  *              Prototypes
  ***************************************************************************/
-PRIVATE void on_close_cb(uv_handle_t* handle);
+PRIVATE void force_close(hgobj gobj);
 PRIVATE void do_close(hgobj gobj);
 PRIVATE void set_connected(hgobj gobj);
 PRIVATE void set_secure_connected(hgobj gobj);
@@ -243,13 +243,14 @@ PRIVATE int mt_start(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(priv->uv_handler_active) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_OPERATIONAL_ERROR,
             "msg",          "%s", "UV handler ALREADY ACTIVE!",
             NULL
         );
+        force_close(gobj);
         return -1;
     }
 
@@ -374,12 +375,19 @@ PRIVATE void mt_destroy(hgobj gobj)
 
 
 /***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE void force_close(hgobj gobj)
+{
+
+}
+
+/***************************************************************************
  *  Only NOW you can destroy this gobj,
  *  when uv has released the handler.
  ***************************************************************************/
-PRIVATE void on_close_cb(uv_handle_t* handle)
+PRIVATE void on_close_cb(hgobj gobj)
 {
-    hgobj gobj = handle->data;
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(priv->sskt) {
@@ -433,7 +441,8 @@ PRIVATE void do_close(hgobj gobj)
         trace_msg(">>> uv_close tcp1 p=%p", &priv->uv_socket);
     }
     gobj_change_state(gobj, "ST_WAIT_STOPPED");
-    uv_close((uv_handle_t *)&priv->uv_socket, on_close_cb);
+    uv_close((uv_handle_t *)&priv->uv_socket, 0);
+    on_close_cb(gobj);
 }
 
 /***************************************************************************
