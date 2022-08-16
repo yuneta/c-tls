@@ -414,6 +414,11 @@ PRIVATE void do_close(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
+    if(priv->uv_read_active) {
+        uv_read_stop((uv_stream_t *)&priv->uv_socket);
+        priv->uv_read_active = 0;
+    }
+
     if(!priv->uv_handler_active) {
         log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
@@ -422,11 +427,8 @@ PRIVATE void do_close(hgobj gobj)
             "msg",          "%s", "UV handler NOT ACTIVE!",
             NULL
         );
+        set_disconnected(gobj, "");
         return;
-    }
-    if(priv->uv_read_active) {
-        uv_read_stop((uv_stream_t *)&priv->uv_socket);
-        priv->uv_read_active = 0;
     }
 
     if(gobj_trace_level(gobj) & TRACE_UV) {
@@ -949,18 +951,27 @@ PRIVATE void do_shutdown(hgobj gobj)
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     if(priv->uv_req_shutdown_active) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_OPERATIONAL_ERROR,
             "msg",          "%s", "uv_req_shutdown ALREADY ACTIVE",
             NULL
         );
-        return;
     }
 
     if(priv->sskt) {
+        /*
+         *  WARNING ytls_shutdown() this provoke a gobj_send_event()/ac_send_encrypted_data()/do_write()
+         *  that could fail in do_write() and got stopped, checked below
+         */
         ytls_shutdown(priv->ytls, priv->sskt);
+    }
+    if(gobj_cmp_current_state(gobj, "ST_WAIT_STOPPED")<=0) {
+        priv->uv_req_write_active = 0;
+        GBUF_DECREF(priv->gbuf_txing)
+        set_disconnected(gobj, "");
+        return;
     }
 
     /*
@@ -992,7 +1003,6 @@ PRIVATE void do_shutdown(hgobj gobj)
         (uv_stream_t*)&priv->uv_socket,
         on_shutdown_cb
     );
-
 }
 
 /***************************************************************************
@@ -1047,6 +1057,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
             "msg",          "%s", "gbuf_txing NOT NULL",
             NULL
         );
+        GBUF_DECREF(priv->gbuf_txing)
     }
 
     priv->uv_req_write_active = 1;
@@ -1071,7 +1082,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
         on_write_cb
     );
     if(ret < 0) {
-        log_error(0,
+        log_error(LOG_OPT_TRACE_STACK,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_LIBUV_ERROR,
@@ -1080,9 +1091,10 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
             "ln",           "%d", ln,
             NULL
         );
-        set_disconnected(gobj, uv_err_name(ret));
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
+        } else {
+            do_close(gobj);
         }
         return -1;
     }
@@ -1393,6 +1405,7 @@ PRIVATE int ac_send_encrypted_data(hgobj gobj, const char *event, json_t *kw, hg
                 "msg",          "%s", "gbuf_txing NOT NULL",
                 NULL
             );
+            GBUF_DECREF(priv->gbuf_txing)
         }
         priv->gbuf_txing = gbuf;
         try_write_all(gobj, TRUE);
