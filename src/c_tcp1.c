@@ -1038,8 +1038,6 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
             "msg",          "%s", "uv_req_write ALREADY ACTIVE",
             NULL
         );
-        gbuf_decref(gbuf);
-        return -1;
     }
     if(priv->gbuf_txing) {
         log_error(LOG_OPT_TRACE_STACK,
