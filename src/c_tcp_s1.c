@@ -412,6 +412,18 @@ PRIVATE void on_close_cb(uv_handle_t* handle)
     }
     gobj_change_state(gobj, "ST_STOPPED");
 
+    if(gobj_trace_level(gobj) & TRACE_LISTEN) {
+        log_info(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+            "msg",          "%s", "Unlistening...",
+            "url",          "%s", priv->url,
+            "lHost",        "%s", gobj_read_str_attr(gobj, "lHost"),
+            "lPort",        "%s", gobj_read_str_attr(gobj, "lPort"),
+            NULL
+        );
+    }
+
     /*
      *  Only NOW you can destroy this gobj,
      *  when uv has released the handler.
@@ -428,7 +440,6 @@ PRIVATE void on_close_cb(uv_handle_t* handle)
             gobj
         );
     }
-
 }
 
 /***************************************************************************
