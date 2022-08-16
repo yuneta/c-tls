@@ -962,7 +962,7 @@ PRIVATE void do_shutdown(hgobj gobj)
 
     if(priv->sskt) {
         /*
-         *  WARNING ytls_shutdown() this provoke a gobj_send_event()/ac_send_encrypted_data()/do_write()
+         *  WARNING ytls_shutdown() provoke a gobj_send_event()/ac_send_encrypted_data()/do_write()
          *  that could fail in do_write() and got stopped, checked below
          */
         ytls_shutdown(priv->ytls, priv->sskt);
