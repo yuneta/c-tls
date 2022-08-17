@@ -823,6 +823,7 @@ PRIVATE const char *state_names[] = {
 PRIVATE EV_ACTION ST_DISCONNECTED[] = {
     {"EV_CONNECT",          ac_connect,                 0},
     {"EV_TX_DATA",          ac_enqueue_tx_data,         0},
+    {"EV_DISCONNECTED",     0,                          0},
     {"EV_TIMEOUT",          ac_timeout_disconnected,    0},
     {"EV_STOPPED",          ac_stopped,                 0},
     {0,0,0}
