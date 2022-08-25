@@ -511,11 +511,13 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
             gobj_top = gobj_find_child(gobj_parent(gobj), jn_filter);
             if(!gobj_top) {
                 if(gobj_trace_level(gobj) & TRACE_NOT_ACCEPTED) {
-                    log_info(0,
+                    log_error(0,
                         "gobj",         "%s", gobj_full_name(gobj),
                         "function",     "%s", __FUNCTION__,
                         "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-                        "msg",          "%s", "Clisrv1 not accepted: no free child tree found",
+                        "msg",          "%s", "Connection not accepted: no free child tree found",
+                        "lHost",        "%s", gobj_read_str_attr(gobj, "lHost"),
+                        "lPort",        "%s", gobj_read_str_attr(gobj, "lPort"),
                         NULL
                     );
                 }
