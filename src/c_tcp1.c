@@ -859,6 +859,15 @@ PRIVATE void on_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
                     NULL
                 );
             }
+        } else if(nread == UV_ETIMEDOUT) {
+            if(gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+                log_info(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
+                    "msg",          "%s", "Timeout keep-alive",
+                    NULL
+                );
+            }
         } else {
             log_error(0,
                 "gobj",         "%s", gobj_full_name(gobj),
