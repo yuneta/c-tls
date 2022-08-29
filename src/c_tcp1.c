@@ -468,7 +468,7 @@ PRIVATE void do_close(hgobj gobj)
     if(!uv_is_active((uv_handle_t *)&priv->uv_socket)) {
         if(!uv_is_closing((uv_handle_t *)&priv->uv_socket)) {
             if(gobj_trace_level(gobj) & TRACE_UV) {
-                trace_msg(">>> uv_close tcp p=%p", &priv->uv_socket);
+                trace_msg(">>> uv_close1 tcp1 p=%p", &priv->uv_socket);
             }
             gobj_change_state(gobj, "ST_WAIT_STOPPED");
             uv_close((uv_handle_t *)&priv->uv_socket, on_close_cb);
@@ -481,7 +481,7 @@ PRIVATE void do_close(hgobj gobj)
     }
 
     if(gobj_trace_level(gobj) & TRACE_UV) {
-        trace_msg(">>> uv_close tcp1 p=%p", &priv->uv_socket);
+        trace_msg(">>> uv_close2 tcp1 p=%p", &priv->uv_socket);
     }
     gobj_change_state(gobj, "ST_WAIT_STOPPED");
     uv_close((uv_handle_t *)&priv->uv_socket, on_close_cb);
@@ -1051,6 +1051,7 @@ PRIVATE void on_write_cb(uv_write_t* req, int status)
             NULL
         );
         if(gobj_is_running(gobj)) {
+            gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
             gobj_stop(gobj); // auto-stop
         }
         return;
@@ -1118,9 +1119,9 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
             NULL
         );
         if(gobj_is_running(gobj)) {
+            priv->uv_req_write_active = 0;
+            gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
             gobj_stop(gobj); // auto-stop
-        } else {
-            do_close(gobj);
         }
         return -1;
     }
@@ -1267,6 +1268,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
                     NULL
                 );
                 if(gobj_is_running(gobj)) {
+                    gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
                     gobj_stop(gobj); // auto-stop
                 }
                 return -1;
