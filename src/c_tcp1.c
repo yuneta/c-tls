@@ -1042,14 +1042,25 @@ PRIVATE void on_write_cb(uv_write_t* req, int status)
     }
 
     if(status != 0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_LIBUV_ERROR,
-            "msg",          "%s", "on_write_cb FAILED",
-            "uv_error",     "%s", uv_err_name(status),
-            NULL
-        );
+        if(status == UV_EPIPE) {
+            if (gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+                log_info(0,
+                    "gobj",     "%s", gobj_full_name(gobj),
+                    "msgset",   "%s", MSGSET_CONNECT_DISCONNECT,
+                    "msg",      "%s", "Broken pipe",
+                    NULL
+                );
+            }
+        } else {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_LIBUV_ERROR,
+                "msg",          "%s", "write: on_write_cb FAILED",
+                "uv_error",     "%s", uv_err_name(status),
+                NULL
+            );
+        }
         if(gobj_is_running(gobj)) {
             gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
             gobj_stop(gobj); // auto-stop
@@ -1109,15 +1120,26 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
         on_write_cb
     );
     if(ret < 0) {
-        log_error(0,
-            "gobj",         "%s", gobj_full_name(gobj),
-            "function",     "%s", __FUNCTION__,
-            "msgset",       "%s", MSGSET_LIBUV_ERROR,
-            "msg",          "%s", "uv_write FAILED",
-            "uv_error",     "%s", uv_err_name(ret),
-            "ln",           "%d", (int)ln,
-            NULL
-        );
+        if(ret == UV_EPIPE) {
+            if (gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+                log_info(0,
+                    "gobj",     "%s", gobj_full_name(gobj),
+                    "msgset",   "%s", MSGSET_CONNECT_DISCONNECT,
+                    "msg",      "%s", "Broken pipe",
+                    NULL
+                );
+            }
+        } else {
+            log_error(0,
+                "gobj",         "%s", gobj_full_name(gobj),
+                "function",     "%s", __FUNCTION__,
+                "msgset",       "%s", MSGSET_LIBUV_ERROR,
+                "msg",          "%s", "write: uv_write FAILED",
+                "uv_error",     "%s", uv_err_name(ret),
+                "ln",           "%d", (int)ln,
+                NULL
+            );
+        }
         if(gobj_is_running(gobj)) {
             priv->uv_req_write_active = 0;
             gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
@@ -1258,21 +1280,31 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
                 GBUFFER *tx = priv->gbuf_txing;
                 priv->gbuf_txing = 0; // Avoid error in do_write()
                 return do_write(gobj, tx);  // continue with gbuf_txing
+            }
+            if(sent == UV_EPIPE) {
+                if (gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+                    log_info(0,
+                        "gobj",     "%s", gobj_full_name(gobj),
+                        "msgset",   "%s", MSGSET_CONNECT_DISCONNECT,
+                        "msg",      "%s", "Broken pipe",
+                        NULL
+                    );
+                }
             } else {
                 log_error(0,
                     "gobj",         "%s", gobj_full_name(gobj),
                     "function",     "%s", __FUNCTION__,
                     "msgset",       "%s", MSGSET_LIBUV_ERROR,
-                    "msg",          "%s", "uv_try_write FAILED",
+                    "msg",          "%s", "write: uv_try_write FAILED",
                     "uv_error",     "%s", uv_err_name(sent),
                     NULL
                 );
-                if(gobj_is_running(gobj)) {
-                    gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
-                    gobj_stop(gobj); // auto-stop
-                }
-                return -1;
             }
+            if(gobj_is_running(gobj)) {
+                gobj_change_state(gobj, "ST_WAIT_DISCONNECTED"); // seems like already disconnected
+                gobj_stop(gobj); // auto-stop
+            }
+            return -1;
         }
     }
 
