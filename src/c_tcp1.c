@@ -959,7 +959,6 @@ PRIVATE void on_shutdown_cb(uv_shutdown_t* req, int status)
     }
 
     priv->uv_req_shutdown_active = 0;
-    // set_disconnected(gobj, "shutdown"); GMS
     do_close(gobj);
 }
 
@@ -1043,7 +1042,14 @@ PRIVATE void on_write_cb(uv_write_t* req, int status)
     }
 
     if(status != 0) {
-        // set_disconnected(gobj, uv_err_name(status)); GMS
+        log_error(0,
+            "gobj",         "%s", gobj_full_name(gobj),
+            "function",     "%s", __FUNCTION__,
+            "msgset",       "%s", MSGSET_LIBUV_ERROR,
+            "msg",          "%s", "on_write_cb FAILED",
+            "uv_error",     "%s", uv_err_name(status),
+            NULL
+        );
         if(gobj_is_running(gobj)) {
             gobj_stop(gobj); // auto-stop
         }
@@ -1102,13 +1108,13 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
         on_write_cb
     );
     if(ret < 0) {
-        log_error(LOG_OPT_TRACE_STACK,
+        log_error(0,
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_LIBUV_ERROR,
             "msg",          "%s", "uv_write FAILED",
             "uv_error",     "%s", uv_err_name(ret),
-            "ln",           "%d", ln,
+            "ln",           "%d", (int)ln,
             NULL
         );
         if(gobj_is_running(gobj)) {
@@ -1252,10 +1258,14 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
                 priv->gbuf_txing = 0; // Avoid error in do_write()
                 return do_write(gobj, tx);  // continue with gbuf_txing
             } else {
-                /*
-                 *  Falló la conexión
-                 */
-                // set_disconnected(gobj, uv_err_name(sent)); GMS
+                log_error(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "function",     "%s", __FUNCTION__,
+                    "msgset",       "%s", MSGSET_LIBUV_ERROR,
+                    "msg",          "%s", "uv_try_write FAILED",
+                    "uv_error",     "%s", uv_err_name(sent),
+                    NULL
+                );
                 if(gobj_is_running(gobj)) {
                     gobj_stop(gobj); // auto-stop
                 }
