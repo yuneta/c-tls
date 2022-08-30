@@ -416,7 +416,8 @@ PRIVATE int publish_token(
         "jwt", jwt
     );
 
-    return gobj_publish_event(gobj, "EV_ON_TOKEN", kw_on_token);
+    gobj_publish_event(gobj, "EV_ON_TOKEN", kw_on_token);
+    return 0;
 }
 
 
