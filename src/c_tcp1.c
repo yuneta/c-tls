@@ -1051,6 +1051,15 @@ PRIVATE void on_write_cb(uv_write_t* req, int status)
                     NULL
                 );
             }
+        } else if(status == UV_ECONNRESET) {
+            if(gobj_trace_level(gobj) & TRACE_CONNECT_DISCONNECT) {
+                log_info(0,
+                    "gobj",     "%s", gobj_full_name(gobj),
+                    "msgset",   "%s", MSGSET_CONNECT_DISCONNECT,
+                    "msg",      "%s", "Forcibly closed by peer",
+                    NULL
+                );
+            }
         } else {
             log_error(0,
                 "gobj",         "%s", gobj_full_name(gobj),
