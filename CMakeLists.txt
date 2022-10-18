@@ -52,6 +52,7 @@ set (SRCS
 
 
 set (HDRS
+    src/msglog_tls.h
     src/yuneta_tls.h
     src/yuneta_tls_version.h
     src/yuneta_tls_register.h

@@ -11,6 +11,7 @@ extern "C"{
 #endif
 
 #include <yuneta.h>
+#include "msglog_tls.h"
 #include "yuneta_tls_version.h"
 #include "yuneta_tls_register.h"
 
