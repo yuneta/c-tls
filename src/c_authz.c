@@ -507,12 +507,13 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
          *  Autorizado
          */
         KW_DECREF(kw);
-        return json_pack("{s:i, s:s, s:s, s:s, s:o}",
+        return json_pack("{s:i, s:s, s:s, s:s, s:o, s:o}",
             "result", 0,
             "comment", comment,
             "username", username,
             "dst_service", dst_service,
-            "services_roles", services_roles
+            "services_roles", services_roles,
+            "jwt_payload", json_null()
         );
     }
 
@@ -694,12 +695,13 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*--------------------------------*
      *      Autorizado, informa
      *--------------------------------*/
-    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:s, s:O}",
+    json_t *jn_resp = json_pack("{s:i, s:s, s:s, s:s, s:O, s:O}",
         "result", 0,
         "comment", "JWT User authenticated",
         "username", username,
         "dst_service", dst_service,
-        "services_roles", services_roles
+        "services_roles", services_roles,
+        "jwt_payload", jwt_payload
     );
 
     /*--------------------------------*
@@ -708,16 +710,16 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     gobj_publish_event(
         gobj,
         "EV_AUTHZ_USER_LOGIN",
-        json_pack("{s:s, s:s, s:o, s:o, s:o}",
+        json_pack("{s:s, s:s, s:o, s:o, s:o, s:o}",
             "username", username,
             "dst_service", dst_service,
             "user", user,
             "session", session,
-            "services_roles", services_roles
+            "services_roles", services_roles,
+            "jwt_payload", jwt_payload
         )
     );
 
-    JSON_DECREF(jwt_payload);
     KW_DECREF(kw);
 
     return jn_resp;
