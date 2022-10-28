@@ -572,7 +572,7 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*-------------------------------------------------*
      *  Get username and validate against our system
      *-------------------------------------------------*/
-    username = kw_get_str(jwt_payload, "email", 0, KW_REQUIRED);
+    username = kw_get_str(jwt_payload, "email", "", KW_REQUIRED);
     BOOL email_verified = kw_get_bool(jwt_payload, "email_verified", false, KW_REQUIRED);
     if(!email_verified) {
         JSON_DECREF(jwt_payload);
