@@ -407,6 +407,45 @@ PRIVATE int mt_stop(hgobj gobj)
 
 /***************************************************************************
  *      Framework Method mt_authenticate
+    Ejemplo keycloak:  {
+            "acr": "1",
+            "allowed-origins": [],
+            "aud": ["realm-management", "account"],
+            "azp": "yunetacontrol",
+            "email": "ginsmar@mulesol.es",
+            "email_verified": true,
+            "exp": 1666336696,
+            "family_name": "Martínez",
+            "given_name": "Ginés",
+            "iat": 1666336576,
+            "iss": "https://localhost:8641/auth/realms/mulesol",
+            "jti": "96b60323-05c1-4cb1-87e8-8bd68e25a56c",
+            "locale": "en",
+            "name": "Ginés Martínez",
+            "preferred_username": "ginsmar@mulesol.es",
+            "realm_access": {},
+            "resource_access": {},
+            "scope": "profile email",
+            "session_state": "aa4fb7ce-d0c7-48a0-ae92-253ef5a600d2",
+            "sid": "aa4fb7ce-d0c7-48a0-ae92-253ef5a600d2",
+            "sub": "0a1e5c27-80f1-4225-943a-edfbc204972d",
+            "typ": "Bearer"
+        }
+    Ejemplo de jwt dado por google  {
+            "aud": "990339570472-k6nqn1tpmitg8pui82bfaun3jrpmiuhs.apps.googleusercontent.com",
+            "azp": "990339570472-k6nqn1tpmitg8pui82bfaun3jrpmiuhs.apps.googleusercontent.com",
+            "email": "ginsmar@gmail.com",
+            "email_verified": true,
+            "exp": 1666341427,
+            "given_name": "Gins",
+            "iat": 1666337827,
+            "iss": "https://accounts.google.com",
+            "jti": "b2a78ed2911514e30e51fb7b0da3c2032ba3a0aa",
+            "name": "Gins",
+            "nbf": 1666337527,
+            "picture": "https://lh3.googleusercontent.com/a/ALm5wu0soemzAFPT0aSqz_-PyPBX_y9RXuSpRcwStQLRBg=s96-c",
+            "sub": "109408784262322618770"
+        }
  ***************************************************************************/
 PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
 {
@@ -533,8 +572,17 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
     /*-------------------------------------------------*
      *  Get username and validate against our system
      *-------------------------------------------------*/
-    // WARNING "preferred_username" is used in keycloak! In others Oauth???
-    username = kw_get_str(jwt_payload, "preferred_username", 0, KW_REQUIRED);
+    username = kw_get_str(jwt_payload, "email", 0, KW_REQUIRED);
+    BOOL email_verified = kw_get_bool(jwt_payload, "email_verified", false, KW_REQUIRED);
+    if(!email_verified) {
+        JSON_DECREF(jwt_payload);
+        KW_DECREF(kw);
+        return json_pack("{s:i, s:s, s:s}",
+            "result", -1,
+            "comment", "Email not verified",
+            "username", username
+        );
+    }
     if(!strchr(username, '@')) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
