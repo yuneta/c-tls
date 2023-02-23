@@ -36,7 +36,7 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name--------------------flag----------------default---------description---------- */
 SDATA (ASN_JSON,        "crypto",               SDF_RD,             0,              "Crypto config"),
 SDATA (ASN_UNSIGNED,    "connxs",               SDF_RD,             0,              "Current connections"),
-SDATA (ASN_OCTET_STR,   "url",                  SDF_RD,             0,              "url listening"),
+SDATA (ASN_OCTET_STR,   "url",                  SDF_WR|SDF_PERSIST, 0,              "url listening"),
 SDATA (ASN_OCTET_STR,   "lHost",                SDF_RD,             0,              "Listening ip, got from url"),
 SDATA (ASN_OCTET_STR,   "lPort",                SDF_RD,             0,              "Listening port, got from url"),
 SDATA (ASN_OCTET_STR,   "stopped_event_name",   SDF_RD,            "EV_STOPPED",   "Stopped event name"),
