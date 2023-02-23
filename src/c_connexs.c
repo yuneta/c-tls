@@ -423,11 +423,31 @@ PRIVATE BOOL get_next_dst(
                 rl_url,
                 2
             );
-            parse_http_url(rl_url[0], schema, schema_len, rhost, rhost_len, rport, rport_len, FALSE);
-            parse_http_url(rl_url[1], schema, schema_len, lhost, lhost_len, lport, lport_len, FALSE);
+            int ret = 0;
+            ret += parse_http_url(rl_url[0], schema, schema_len, rhost, rhost_len, rport, rport_len, FALSE);
+            ret += parse_http_url(rl_url[1], schema, schema_len, lhost, lhost_len, lport, lport_len, FALSE);
+            if(ret < 0) {
+                log_error(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "function",     "%s", __FUNCTION__,
+                    "msgset",       "%s", MSGSET_PARAMETER_ERROR,
+                    "msg",          "%s", "parse_http_url() FAILED",
+                    "url",          "%s", url,
+                    NULL
+                );
+            }
             split_free(rl_url, list_size);
         } else {
-            parse_http_url(url, schema, schema_len, rhost, rhost_len, rport, rport_len, FALSE);
+            if(parse_http_url(url, schema, schema_len, rhost, rhost_len, rport, rport_len, FALSE)<0) {
+                log_error(0,
+                    "gobj",         "%s", gobj_full_name(gobj),
+                    "function",     "%s", __FUNCTION__,
+                    "msgset",       "%s", MSGSET_PARAMETER_ERROR,
+                    "msg",          "%s", "parse_http_url() FAILED",
+                    "url",          "%s", url,
+                    NULL
+                );
+            }
             const char *p = gobj_read_str_attr(gobj, "lHost");
             snprintf(lhost, lhost_len, "%s", p?p:"");
             p = gobj_read_str_attr(gobj, "lPort");
