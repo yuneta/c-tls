@@ -282,7 +282,7 @@ PRIVATE int mt_start(hgobj gobj)
             NULL
         );
     }
-    if(priv->path[strlen(priv->path)-1]=='/') {
+    if(strlen(priv->path) > 0 && priv->path[strlen(priv->path)-1]=='/') {
         priv->path[strlen(priv->path)-1] = 0;
     }
     BOOL secure = FALSE;
