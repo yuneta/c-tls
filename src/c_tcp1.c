@@ -1120,7 +1120,7 @@ PRIVATE int do_write(hgobj gobj, GBUFFER *gbuf)
 
     char *bf = gbuf_get(gbuf, ln);
     uv_buf_t b[] = {
-        { .base = bf, .len = ln}
+        {.base = bf, .len = ln}
     };
     uint32_t trace = gobj_trace_level(gobj);
     if((trace & TRACE_UV)) {
@@ -1252,7 +1252,7 @@ PRIVATE int try_write_all(hgobj gobj, BOOL inform_tx_ready)
         char *bf = gbuf_cur_rd_pointer(priv->gbuf_txing);
 
         uv_buf_t b[] = {
-            { .base = bf, .len = ln}
+            {.base = bf, .len = ln}
         };
 
         int sent = uv_try_write((uv_stream_t*)&priv->uv_socket, b, 1);
