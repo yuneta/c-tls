@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(yuneta-tls C)
 cmake_minimum_required(VERSION 3.0)
+project(yuneta-tls C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 
