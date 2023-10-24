@@ -547,6 +547,11 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
             );
         }
 
+        /*------------------------------------------------*
+         *  HACK guarda username en src (IEvent_srv)
+         *------------------------------------------------*/
+        gobj_write_str_attr(src, "__username__", username);
+
         /*
          *  Autorizado
          */
@@ -644,11 +649,11 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
         return jn_msg;
     }
 
-    /*------------------------------------------------*
-     *  HACK guarda jwt_payload en src (IEvent_srv)
-     *------------------------------------------------*/
-    gobj_write_json_attr(src, "jwt_payload", jwt_payload);
+    /*----------------------------------------------------------*
+     *  HACK guarda username, jwt_payload en src (IEvent_srv)
+     *----------------------------------------------------------*/
     gobj_write_str_attr(src, "__username__", username);
+    gobj_write_json_attr(src, "jwt_payload", jwt_payload);
 
     /*------------------------------*
      *      Save user access
