@@ -12,9 +12,7 @@
 #include <grp.h>
 #include <string.h>
 #include <stdio.h>
-#include <cjose/cjose.h>
-#include <oauth2/oauth2.h>
-#include <oauth2/mem.h>
+#include <jwt.h>
 #include "c_authz.h"
 
 #include "treedb_schema_authzs.c"
@@ -30,14 +28,6 @@
 /***************************************************************************
  *              Prototypes
  ***************************************************************************/
-PRIVATE void oauth2_log_callback(
-    oauth2_log_sink_t *sink,
-    const char *filename,
-    unsigned long line,
-    const char *function,
-    oauth2_log_level_t level,
-    const char *msg
-);
 PRIVATE int add_user_login(hgobj gobj, const char *username, json_t *jwt_payload);
 
 PRIVATE json_t *identify_system_user(
@@ -154,9 +144,9 @@ typedef struct _PRIVATE_DATA {
     hgobj gobj_treedb;
     json_t *tranger;
 
-    oauth2_log_t *oath2_log;
-    oauth2_log_sink_t *oath2_sink;
-    oauth2_cfg_token_verify_t *verify;
+//    oauth2_log_t *oath2_log;
+//    oauth2_log_sink_t *oath2_sink;
+//    oauth2_cfg_token_verify_t *verify;
     json_t *users_accesses;      // dict with users opened
 
 } PRIVATE_DATA;
@@ -207,40 +197,40 @@ PRIVATE void mt_create(hgobj gobj)
 //        gbmem_free
 //    );
 
-    int level = 0;
-    if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
-        level = OAUTH2_LOG_TRACE2;
-    } else {
-        level = OAUTH2_LOG_WARN;
-    }
-
-    priv->oath2_sink = oauth2_log_sink_create(
-        level,                  // oauth2_log_level_t level,
-        oauth2_log_callback,    // oauth2_log_function_t callback,
-        gobj                    // void *ctx
-    );
-    priv->oath2_log = oauth2_init(level, priv->oath2_sink);
-
-    const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
-    if(pubkey) {
-        const char *rv = oauth2_cfg_token_verify_add_options(
-            priv->oath2_log,
-            &priv->verify,
-            "pubkey",
-            pubkey,
-            "verify.exp=required&expiry=300&verify.iat=skip"
-            //"verify.exp=required&expiry=300&verify.iat.slack_before=300"
-        );
-        if(rv != NULL) {
-            log_error(0,
-                "gobj",         "%s", gobj_full_name(gobj),
-                "function",     "%s", __FUNCTION__,
-                "msgset",       "%s", MSGSET_OAUTH_ERROR,
-                "msg",          "%s", "oauth2_cfg_token_verify_add_options() FAILED",
-                NULL
-            );
-        }
-    }
+//    int level = 0;
+//    if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
+//        level = OAUTH2_LOG_TRACE2;
+//    } else {
+//        level = OAUTH2_LOG_WARN;
+//    }
+//
+//    priv->oath2_sink = oauth2_log_sink_create(
+//        level,                  // oauth2_log_level_t level,
+//        oauth2_log_callback,    // oauth2_log_function_t callback,
+//        gobj                    // void *ctx
+//    );
+//    priv->oath2_log = oauth2_init(level, priv->oath2_sink);
+//
+//    const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
+//    if(pubkey) {
+//        const char *rv = oauth2_cfg_token_verify_add_options(
+//            priv->oath2_log,
+//            &priv->verify,
+//            "pubkey",
+//            pubkey,
+//            "verify.exp=required&expiry=300&verify.iat=skip"
+//            //"verify.exp=required&expiry=300&verify.iat.slack_before=300"
+//        );
+//        if(rv != NULL) {
+//            log_error(0,
+//                "gobj",         "%s", gobj_full_name(gobj),
+//                "function",     "%s", __FUNCTION__,
+//                "msgset",       "%s", MSGSET_OAUTH_ERROR,
+//                "msg",          "%s", "oauth2_cfg_token_verify_add_options() FAILED",
+//                NULL
+//            );
+//        }
+//    }
 
     /*---------------------------*
      *  Create Timeranger
@@ -327,11 +317,11 @@ PRIVATE void mt_destroy(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    if(priv->verify) {
-        oauth2_cfg_token_verify_free(priv->oath2_log, priv->verify);
-        priv->verify = 0;
-    }
-    EXEC_AND_RESET(oauth2_shutdown, priv->oath2_log);
+//    if(priv->verify) {
+//        oauth2_cfg_token_verify_free(priv->oath2_log, priv->verify);
+//        priv->verify = 0;
+//    }
+//    EXEC_AND_RESET(oauth2_shutdown, priv->oath2_log);
 }
 
 /***************************************************************************
@@ -570,14 +560,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *      HERE with user JWT
      *-------------------------------*/
     json_t *jwt_payload = NULL;
-    if(!oauth2_token_verify(priv->oath2_log, NULL, priv->verify, jwt, &jwt_payload)) {
+//    if(!oauth2_token_verify(priv->oath2_log, NULL, priv->verify, jwt, &jwt_payload)) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
             "result", -1,
             "comment", "JWT validation failure"
         );
-    }
+//    }
 
     /*-------------------------------------------------*
      *  Get username and validate against our system
@@ -991,43 +981,43 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE void oauth2_log_callback(
-    oauth2_log_sink_t *sink,
-    const char *filename,
-    unsigned long line,
-    const char *function,
-    oauth2_log_level_t level,
-    const char *msg
-)
-{
-    hgobj gobj = oauth2_log_sink_ctx_get(sink);
-
-    void (*log_fn)(log_opt_t opt, ...) = 0;
-    const char *msgset = MSGSET_OAUTH_ERROR;
-
-    if(level == OAUTH2_LOG_ERROR) {
-        log_fn = log_error;
-    } else if(level == OAUTH2_LOG_WARN) {
-        log_fn = log_warning;
-    } else if(level == OAUTH2_LOG_NOTICE || level == OAUTH2_LOG_INFO) {
-        log_fn = log_warning;
-        msgset = MSGSET_INFO;
-    } else if(level >= OAUTH2_LOG_DEBUG) {
-        log_fn = 0;
-    }
-
-    if(log_fn) {
-        log_fn(0,
-            "gobj",             "%s", gobj_full_name(gobj),
-            "function",         "%s", function,
-            "msgset",           "%s", msgset,
-            "msg",              "%s", msg,
-            NULL
-        );
-    } else {
-        trace_msg("%s", msg);
-    }
-}
+//PRIVATE void oauth2_log_callback(
+//    oauth2_log_sink_t *sink,
+//    const char *filename,
+//    unsigned long line,
+//    const char *function,
+//    oauth2_log_level_t level,
+//    const char *msg
+//)
+//{
+//    hgobj gobj = oauth2_log_sink_ctx_get(sink);
+//
+//    void (*log_fn)(log_opt_t opt, ...) = 0;
+//    const char *msgset = MSGSET_OAUTH_ERROR;
+//
+//    if(level == OAUTH2_LOG_ERROR) {
+//        log_fn = log_error;
+//    } else if(level == OAUTH2_LOG_WARN) {
+//        log_fn = log_warning;
+//    } else if(level == OAUTH2_LOG_NOTICE || level == OAUTH2_LOG_INFO) {
+//        log_fn = log_warning;
+//        msgset = MSGSET_INFO;
+//    } else if(level >= OAUTH2_LOG_DEBUG) {
+//        log_fn = 0;
+//    }
+//
+//    if(log_fn) {
+//        log_fn(0,
+//            "gobj",             "%s", gobj_full_name(gobj),
+//            "function",         "%s", function,
+//            "msgset",           "%s", msgset,
+//            "msg",              "%s", msg,
+//            NULL
+//        );
+//    } else {
+//        trace_msg("%s", msg);
+//    }
+//}
 
 /***************************************************************************
  *
