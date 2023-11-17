@@ -45,19 +45,46 @@ PRIVATE json_t *get_user_roles(
     json_t *kw  // not owned
 );
 
+PRIVATE int create_jwt_validations(hgobj gobj);
+PRIVATE int destroy_jwt_validations(hgobj gobj);
+PRIVATE int create_validation(hgobj gobj, json_t *jn_pkey);
+PRIVATE GBUFFER *format_to_pem(hgobj gobj, const char *pkey, size_t pkey_len);
+PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload);
+
 /***************************************************************************
  *              Resources
  ***************************************************************************/
+/*
+ *  OAuth Issuer
+ */
+static const json_desc_t oauth_iss_desc[] = {
+// Name             Type        Defaults    Fillspace
+{"iss",             "string",   "",         "60"},  // First item is the pkey
+{"description",     "string",   "",         "30"},
+{"disabled",        "boolean",  "0",        "8"},
+{"algorithm",       "string",   "RS256",    "10"},
+{"pkey",            "string",   "",         "20"},
+{0}
+};
+
+
 PRIVATE topic_desc_t db_messages_desc[] = {
-    // Topic Name,          Pkey            System Flag     Tkey        Topic Json Desc
-    {"users_accesses",      "username",     sf_string_key,  "tm",       0},
-    {0}
+// Topic Name,          Pkey            System Flag     Tkey        Topic Json Desc
+{"users_accesses",      "username",     sf_string_key,  "tm",       0},
+{0}
 };
 
 /***************************************************************************
  *          Data: config, public data, private data
  ***************************************************************************/
 PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+
+PRIVATE json_t *cmd_list_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_add_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_remove_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_enable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_disable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
@@ -69,6 +96,22 @@ SDATAPM (ASN_OCTET_STR, "cmd",          0,              0,          "command abo
 SDATAPM (ASN_UNSIGNED,  "level",        0,              0,          "command search level in childs"),
 SDATA_END()
 };
+
+PRIVATE sdata_desc_t pm_add_iss[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "iss",          0,              0,          "Issuer"),
+SDATAPM (ASN_OCTET_STR, "description",  0,              0,          "Description"),
+SDATAPM (ASN_BOOLEAN,   "disabled",     0,              0,          "Disabled"),
+SDATAPM (ASN_OCTET_STR, "algorithm",    0,              0,          "Algorithm"),
+SDATAPM (ASN_OCTET_STR, "pkey",         0,              0,          "Public key"),
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_rm_iss[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "iss",          0,              0,          "Issuer"),
+SDATA_END()
+};
+
 PRIVATE sdata_desc_t pm_authzs[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
 SDATAPM (ASN_OCTET_STR, "authz",        0,              0,          "permission to search"),
@@ -93,12 +136,19 @@ SDATA_END()
 PRIVATE const char *a_help[] = {"h", "?", 0};
 
 PRIVATE sdata_desc_t command_table[] = {
-/*-CMD---type-----------name----------------alias---------------items-----------json_fn---------description---------- */
-SDATACM (ASN_SCHEMA,    "help",             a_help,             pm_help,        cmd_help,       "Command's help"),
-SDATACM (ASN_SCHEMA,    "authzs",           0,                  pm_authzs,      cmd_authzs,     "Authorization's help"),
-SDATACM (ASN_SCHEMA,    "users",            0,                  pm_users,       cmd_users,   "List users"),
-SDATACM (ASN_SCHEMA,    "user-roles",       0,                  pm_user_roles,  cmd_user_roles,     "Get roles of user"),
-SDATACM (ASN_SCHEMA,    "user-authzs",      0,                  pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
+/*-CMD---type-----------name----------------alias-------items-----------json_fn---------description---------- */
+SDATACM (ASN_SCHEMA,    "help",             a_help,     pm_help,        cmd_help,       "Command's help"),
+
+SDATACM (ASN_SCHEMA,    "list-iss",         0,          0,          cmd_list_iss,   "List OAuth2 Issuers"),
+SDATACM (ASN_SCHEMA,    "add-iss",          0,          pm_add_iss, cmd_add_iss,    "Add OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "remove-iss",       0,          pm_rm_iss,  cmd_remove_iss, "Remove OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "enable-iss",       0,          pm_rm_iss,  cmd_enable_iss, "Enable OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "disable-iss",      0,          pm_rm_iss,  cmd_disable_iss,"Disable OAuth2 Issuer"),
+
+SDATACM (ASN_SCHEMA,    "authzs",           0,          pm_authzs,      cmd_authzs,     "Authorization's help"),
+SDATACM (ASN_SCHEMA,    "users",            0,          pm_users,       cmd_users,   "List users"),
+SDATACM (ASN_SCHEMA,    "user-roles",       0,          pm_user_roles,  cmd_user_roles,     "Get roles of user"),
+SDATACM (ASN_SCHEMA,    "user-authzs",      0,          pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
 SDATA_END()
 };
 
@@ -106,10 +156,10 @@ SDATA_END()
  *      Attributes - order affect to oid's
  *---------------------------------------------*/
 PRIVATE sdata_desc_t tattr_desc[] = {
-/*-ATTR-type------------name----------------flag----------------default---------description---------- */
-SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,              "Max sessions per user"),
-SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_RD,             0,              "JWT public key"),
-SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,              "Initial data for treedb"),
+/*-ATTR-type------------name----------------flag----------------default-----description---------- */
+SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,          "Max sessions per user"),
+SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, 0,          "JWT public keys"),
+SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,                  0,          "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,                  0,          "subscriber of output-events. Not a child gobj."),
@@ -144,11 +194,8 @@ typedef struct _PRIVATE_DATA {
     hgobj gobj_treedb;
     json_t *tranger;
 
-//    oauth2_log_t *oath2_log;
-//    oauth2_log_sink_t *oath2_sink;
-//    oauth2_cfg_token_verify_t *verify;
     json_t *users_accesses;      // dict with users opened
-
+    json_t *jn_validations;
 } PRIVATE_DATA;
 
 
@@ -189,48 +236,14 @@ PRIVATE void mt_create(hgobj gobj)
     }
 
     /*---------------------------*
-     *      Oauth
+     *      OAuth
      *---------------------------*/
-//    oauth2_mem_set_alloc_funcs(
-//        gbmem_malloc,
-//        gbmem_realloc,
-//        gbmem_free
-//    );
-
-//    int level = 0;
-//    if(gobj_trace_level(gobj) & TRACE_MESSAGES) {
-//        level = OAUTH2_LOG_TRACE2;
-//    } else {
-//        level = OAUTH2_LOG_WARN;
-//    }
-//
-//    priv->oath2_sink = oauth2_log_sink_create(
-//        level,                  // oauth2_log_level_t level,
-//        oauth2_log_callback,    // oauth2_log_function_t callback,
-//        gobj                    // void *ctx
-//    );
-//    priv->oath2_log = oauth2_init(level, priv->oath2_sink);
-//
-//    const char *pubkey = gobj_read_str_attr(gobj, "jwt_public_key");
-//    if(pubkey) {
-//        const char *rv = oauth2_cfg_token_verify_add_options(
-//            priv->oath2_log,
-//            &priv->verify,
-//            "pubkey",
-//            pubkey,
-//            "verify.exp=required&expiry=300&verify.iat=skip"
-//            //"verify.exp=required&expiry=300&verify.iat.slack_before=300"
-//        );
-//        if(rv != NULL) {
-//            log_error(0,
-//                "gobj",         "%s", gobj_full_name(gobj),
-//                "function",     "%s", __FUNCTION__,
-//                "msgset",       "%s", MSGSET_OAUTH_ERROR,
-//                "msg",          "%s", "oauth2_cfg_token_verify_add_options() FAILED",
-//                NULL
-//            );
-//        }
-//    }
+    jwt_set_alloc(
+        gbmem_malloc,
+        gbmem_realloc,
+        gbmem_free
+    );
+    create_jwt_validations(gobj);
 
     /*---------------------------*
      *  Create Timeranger
@@ -315,13 +328,7 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
  ***************************************************************************/
 PRIVATE void mt_destroy(hgobj gobj)
 {
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-//    if(priv->verify) {
-//        oauth2_cfg_token_verify_free(priv->oath2_log, priv->verify);
-//        priv->verify = 0;
-//    }
-//    EXEC_AND_RESET(oauth2_shutdown, priv->oath2_log);
+    destroy_jwt_validations(gobj);
 }
 
 /***************************************************************************
@@ -560,14 +567,14 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *      HERE with user JWT
      *-------------------------------*/
     json_t *jwt_payload = NULL;
-//    if(!oauth2_token_verify(priv->oath2_log, NULL, priv->verify, jwt, &jwt_payload)) {
+    if(!verify_token(gobj, jwt, &jwt_payload)) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
             "result", -1,
             "comment", "JWT validation failure"
         );
-//    }
+    }
 
     /*-------------------------------------------------*
      *  Get username and validate against our system
@@ -801,6 +808,371 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 }
 
 /***************************************************************************
+ *  List iss Issuers of OAuth2
+ ***************************************************************************/
+PRIVATE json_t *cmd_list_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    json_t *jn_schema = json_record_to_schema(oauth_iss_desc);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        jn_schema,
+        json_incref(jwt_public_keys),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *  Add OAuth2 Issuer
+ ***************************************************************************/
+PRIVATE json_t *cmd_add_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *iss = kw_get_str(kw, "iss", "", 0);
+    const char *description = kw_get_str(kw, "description", "", 0);
+    BOOL disabled = kw_get_bool(kw, "disabled", 0, KW_WILD_NUMBER);
+    const char *algorithm = kw_get_str(kw, "algorithm", "RS256", 0);
+    const char *pkey = kw_get_str(kw, "pkey", "", 0);
+
+    if(empty_string(iss)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What iss?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+    if(empty_string(pkey)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What public key?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    /*
+     *  Create new record
+     */
+    json_t *jn_record = create_json_record(oauth_iss_desc);
+    json_object_update_new(
+        jn_record,
+        json_pack("{s:s, s:s, s:b, s:s, s:s}",
+            "iss", iss,
+            "description", description,
+            "disabled", disabled,
+            "algorithm", algorithm,
+            "pkey", pkey
+        )
+    );
+
+    /*
+     *  Check if the record already exists
+     */
+    json_t *jn_record_ = kwjr_get( // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        0                   // flag
+    );
+    if(jn_record_) {
+        JSON_DECREF(jn_record);
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("Issuer '%s' already exists", iss),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    /*
+     *  Add the new record
+     */
+    jn_record_ = kwjr_get(  // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        jn_record,          // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        KW_CREATE           // flag
+    );
+
+    /*
+     *  Save new record in persistent attrs
+     */
+    gobj_save_persistent_attrs(gobj, json_string("jwt_public_keys"));
+
+    /*
+     *  Create new validation
+     */
+    json_t *jn_validation = create_json_record(oauth_iss_desc);
+    json_object_update_new(jn_validation, json_deep_copy(jn_record_));
+    json_array_append_new(priv->jn_validations, jn_validation);
+    create_validation(gobj, jn_validation);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        json_record_to_schema(oauth_iss_desc),
+        json_incref(jn_record_),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *  Remove OAuth2 Issuer
+ ***************************************************************************/
+PRIVATE json_t *cmd_remove_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *iss = kw_get_str(kw, "iss", "", 0);
+    if(empty_string(iss)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What iss?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    /*
+     *  Check if the record already exists
+     */
+    json_t *jn_record_ = kwjr_get( // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        0                   // flag
+    );
+    if(!jn_record_) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("Issuer '%s' NOT exists", iss),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    /*
+     *  Remove the record
+     */
+    jn_record_ = kwjr_get(  // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        KW_EXTRACT          // flag
+    );
+
+    /*
+     *  Save new record in persistent attrs
+     */
+    gobj_save_persistent_attrs(gobj, json_string("jwt_public_keys"));
+
+    /*
+     *  Delete validation
+     */
+    json_t *jn_validation = kwjr_get(  // Return is NOT yours, unless use of KW_EXTRACT
+        priv->jn_validations,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        KW_EXTRACT          // flag
+    );
+    jwt_valid_t *jwt_valid = (jwt_valid_t *)(size_t)kw_get_int(jn_validation, "jwt_valid", 0, KW_REQUIRED);
+    jwt_valid_free(jwt_valid);
+    JSON_DECREF(jn_validation)
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        json_sprintf("Issuer '%s' deleted", iss),
+        json_record_to_schema(oauth_iss_desc),
+        jn_record_,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_disable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *iss = kw_get_str(kw, "iss", "", 0);
+    if(empty_string(iss)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What iss?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    /*
+     *  Check if the record already exists
+     */
+    json_t *jn_record_ = kwjr_get( // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        0                   // flag
+    );
+    if(!jn_record_) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("Issuer '%s' NOT exists", iss),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    /*
+     *  Set disabled in the record
+     */
+    json_object_set_new(jn_record_, "disabled", json_true());
+
+    /*
+     *  Save new record in persistent attrs
+     */
+    gobj_save_persistent_attrs(gobj, json_string("jwt_public_keys"));
+
+    /*
+     *  Delete validation
+     */
+    json_t *jn_validation = kwjr_get(  // Return is NOT yours, unless use of KW_EXTRACT
+        priv->jn_validations,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        KW_REQUIRED          // flag
+    );
+    json_object_set_new(jn_validation, "disabled", json_true());
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        json_sprintf("Issuer '%s' disabled", iss),
+        json_record_to_schema(oauth_iss_desc),
+        json_incref(jn_record_),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_enable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    const char *iss = kw_get_str(kw, "iss", "", 0);
+    if(empty_string(iss)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What iss?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    /*
+     *  Check if the record already exists
+     */
+    json_t *jn_record_ = kwjr_get( // Return is NOT yours, unless use of KW_EXTRACT
+        jwt_public_keys,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        0                   // flag
+    );
+    if(!jn_record_) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("Issuer '%s' NOT exists", iss),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    /*
+     *  Set disabled in the record
+     */
+    json_object_set_new(jn_record_, "disabled", json_false());
+
+    /*
+     *  Save new record in persistent attrs
+     */
+    gobj_save_persistent_attrs(gobj, json_string("jwt_public_keys"));
+
+    /*
+     *  Delete validation
+     */
+    json_t *jn_validation = kwjr_get(  // Return is NOT yours, unless use of KW_EXTRACT
+        priv->jn_validations,    // kw, NOT owned
+        iss,                // id
+        0,                  // new_record, owned
+        oauth_iss_desc,     // json_desc
+        NULL,               // idx pointer
+        KW_REQUIRED          // flag
+    );
+    json_object_set_new(jn_validation, "disabled", json_false());
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        json_sprintf("Issuer '%s' enabled", iss),
+        json_record_to_schema(oauth_iss_desc),
+        json_incref(jn_record_),
+        kw  // owned
+    );
+}
+
+/***************************************************************************
  *
  ***************************************************************************/
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
@@ -979,45 +1351,243 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 
 
 /***************************************************************************
+ *  Create validations for public keys
+ ***************************************************************************/
+PRIVATE int create_jwt_validations(hgobj gobj)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+
+    priv->jn_validations = json_array();
+    int idx; json_t *jn_record;
+    json_array_foreach(jwt_public_keys, idx, jn_record) {
+        json_t *jn_validation = create_json_record(oauth_iss_desc);
+        json_object_update_new(jn_validation, json_deep_copy(jn_record));
+        json_array_append_new(priv->jn_validations, jn_validation);
+        create_validation(gobj, jn_validation);
+    }
+
+    return 0;
+}
+
+/***************************************************************************
+ *  Destroy validations
+ ***************************************************************************/
+PRIVATE int destroy_jwt_validations(hgobj gobj)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    int idx; json_t *jn_validation;
+    json_array_foreach(priv->jn_validations, idx, jn_validation) {
+        jwt_valid_t *jwt_valid = (jwt_valid_t *)(size_t)kw_get_int(jn_validation, "jwt_valid", 0, KW_REQUIRED);
+        jwt_valid_free(jwt_valid);
+    }
+
+    JSON_DECREF(priv->jn_validations)
+
+    return 0;
+}
+
+/***************************************************************************
+ *  jn_pkey is duplicate json of a entry in jwt_public_keys
+ *
+ *  jn_pkey: {
+ *      iss: str, // Issuer, this claim identifies the entity that issued the JWT
+ *      description: str,
+ *      algorithm: str, Encryption algorithm
+ *      pkey: str, // public key in [raw-base64 | PEM format]
+ *  }
+ ***************************************************************************/
+PRIVATE int create_validation(hgobj gobj, json_t *jn_validation)
+{
+    const char *iss = kw_get_str(jn_validation, "iss", "", KW_REQUIRED);
+    const char *pkey = kw_get_str(jn_validation, "pkey", "", KW_REQUIRED);
+    const char *algorithm = kw_get_str(jn_validation, "algorithm", "", KW_REQUIRED);
+    int ret = 0;
+
+    /*
+     *  Public keys must be in PEM format, convert if not done
+     */
+    if(strstr(pkey, "-BEGIN PUBLIC KEY-")==NULL) {
+        GBUFFER *gbuf = format_to_pem(gobj, pkey, strlen(pkey));
+        const char *p = gbuf_cur_rd_pointer(gbuf);
+        json_object_set_new(jn_validation, "pkey", json_string(p));
+        GBUF_DECREF(gbuf)
+    }
+
+    /*
+     *  Convert Encryption algorithm string to enum
+     */
+    jwt_alg_t alg = jwt_str_alg(algorithm);
+    if(alg == JWT_ALG_INVAL) {
+        log_error(0,
+            "gobj",             "%s", gobj_full_name(gobj),
+            "function",         "%s", __FUNCTION__,
+            "msgset",           "%s", MSGSET_CONFIGURATION_ERROR,
+            "msg",              "%s", "JWT Algorithm UNKNOWN",
+            "algorithm",        "%s", algorithm,
+            NULL
+        );
+        alg = JWT_ALG_RS256;
+    }
+    json_object_set_new(jn_validation, "alg", json_integer(alg));
+
+    /*
+     *  Create validator
+     */
+    jwt_valid_t *jwt_valid;
+
+    /* Setup validation */
+    ret = jwt_valid_new(&jwt_valid, alg);
+    if (ret != 0 || jwt_valid == NULL) {
+        log_error(0,
+            "gobj",             "%s", gobj_full_name(gobj),
+            "function",         "%s", __FUNCTION__,
+            "msgset",           "%s", MSGSET_CONFIGURATION_ERROR,
+            "msg",              "%s", "jwt_valid_new() FAILED",
+            "algorithm",        "%s", algorithm,
+            NULL
+        );
+    } else {
+        jwt_valid_set_headers(jwt_valid, 1);
+        jwt_valid_set_now(jwt_valid, time(NULL));
+        if(!empty_string(iss)) {
+            jwt_valid_add_grant(jwt_valid, "iss", iss);
+        }
+    }
+
+    json_object_set_new(jn_validation, "jwt_valid", json_integer((json_int_t)jwt_valid));
+
+    return ret;
+}
+
+/***************************************************************************
+ *  Function to convert to PEM format
+ ***************************************************************************/
+PRIVATE GBUFFER *format_to_pem(hgobj gobj, const char *pkey, size_t pkey_len)
+{
+    const char *header = "-----BEGIN PUBLIC KEY-----\n";
+    const char *tail = "-----END PUBLIC KEY-----\n";
+
+    size_t l = pkey_len + strlen(header) + strlen(tail) + pkey_len/64 + 1;
+    GBUFFER *gbuf = gbuf_create(l, l, 0, 0);
+    if(!gbuf) {
+        // Error already logged
+        return NULL;
+    }
+
+    gbuf_append_string(gbuf, header);
+    const char *p = pkey;
+    size_t lines = pkey_len/64 + ((pkey_len % 64)?1:0);
+    for(size_t i=0; i<lines; i++) {
+        p += gbuf_append(gbuf, (void *)p, MIN(64, strlen(p)));
+        gbuf_append_char(gbuf, '\n');
+    }
+    gbuf_append_string(gbuf, tail);
+
+    return gbuf;
+}
+
+/***************************************************************************
  *
  ***************************************************************************/
-//PRIVATE void oauth2_log_callback(
-//    oauth2_log_sink_t *sink,
-//    const char *filename,
-//    unsigned long line,
-//    const char *function,
-//    oauth2_log_level_t level,
-//    const char *msg
-//)
-//{
-//    hgobj gobj = oauth2_log_sink_ctx_get(sink);
-//
-//    void (*log_fn)(log_opt_t opt, ...) = 0;
-//    const char *msgset = MSGSET_OAUTH_ERROR;
-//
-//    if(level == OAUTH2_LOG_ERROR) {
-//        log_fn = log_error;
-//    } else if(level == OAUTH2_LOG_WARN) {
-//        log_fn = log_warning;
-//    } else if(level == OAUTH2_LOG_NOTICE || level == OAUTH2_LOG_INFO) {
-//        log_fn = log_warning;
-//        msgset = MSGSET_INFO;
-//    } else if(level >= OAUTH2_LOG_DEBUG) {
-//        log_fn = 0;
-//    }
-//
-//    if(log_fn) {
-//        log_fn(0,
-//            "gobj",             "%s", gobj_full_name(gobj),
-//            "function",         "%s", function,
-//            "msgset",           "%s", msgset,
-//            "msg",              "%s", msg,
-//            NULL
-//        );
-//    } else {
-//        trace_msg("%s", msg);
-//    }
-//}
+PRIVATE const char *get_validation_status(unsigned status)
+{
+    const char *s;
+    switch(status) {
+        case JWT_VALIDATION_SUCCESS:
+            s = "JWT_VALIDATION_SUCCESS";
+            break;
+        case JWT_VALIDATION_ALG_MISMATCH:
+            s = "JWT_VALIDATION_ALG_MISMATCH";
+            break;
+        case JWT_VALIDATION_EXPIRED:
+            s = "JWT_VALIDATION_EXPIRED";
+            break;
+        case JWT_VALIDATION_TOO_NEW:
+            s = "JWT_VALIDATION_TOO_NEW";
+            break;
+        case JWT_VALIDATION_ISS_MISMATCH:
+            s = "JWT_VALIDATION_ISS_MISMATCH";
+            break;
+        case JWT_VALIDATION_SUB_MISMATCH:
+            s = "JWT_VALIDATION_SUB_MISMATCH";
+            break;
+        case JWT_VALIDATION_AUD_MISMATCH:
+            s = "JWT_VALIDATION_AUD_MISMATCH";
+            break;
+        case JWT_VALIDATION_GRANT_MISSING:
+            s = "JWT_VALIDATION_GRANT_MISSING";
+            break;
+        case JWT_VALIDATION_GRANT_MISMATCH:
+            s = "JWT_VALIDATION_GRANT_MISMATCH";
+            break;
+        default:
+        case JWT_VALIDATION_ERROR:
+            s = "JWT_VALIDATION_ERROR";
+            break;
+    }
+    return s;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    BOOL validated = FALSE;
+    *jwt_payload = NULL;
+
+    jwt_t *jwt;
+    int ret;
+
+    int idx; json_t *jn_validation;
+    json_array_foreach(priv->jn_validations, idx, jn_validation) {
+        BOOL disabled = kw_get_bool(jn_validation, "disabled", 0, KW_REQUIRED);
+        if(disabled) {
+            continue;
+        }
+        const char *pkey = kw_get_str(jn_validation, "pkey", "", KW_REQUIRED);
+        ret = jwt_decode(
+            &jwt,
+            token,
+            (const unsigned char *)pkey,
+            (int)strlen(pkey)
+        );
+        if(ret != 0) {
+            continue;
+        }
+
+        char *s = jwt_get_grants_json(jwt, NULL);
+        if(s) {
+            *jwt_payload = legalstring2json(s, TRUE);
+            jwt_free_str(s);
+        }
+
+        jwt_valid_t *jwt_valid = (jwt_valid_t *)(size_t)kw_get_int(jn_validation, "jwt_valid", 0, KW_REQUIRED);
+        jwt_valid_set_now(jwt_valid, time(NULL));
+
+        if(jwt_validate(jwt, jwt_valid)==0) {
+            validated = TRUE;
+        } else {
+            log_info(0,
+                "gobj",             "%s", gobj_full_name(gobj),
+                "function",         "%s", __FUNCTION__,
+                "msgset",           "%s", MSGSET_INFO,
+                "msg",              "%s", "jwt invalid",
+                "status",           "%s", get_validation_status(jwt_valid_get_status(jwt_valid)),
+                NULL
+            );
+            log_debug_json(0, *jwt_payload, "jwt invalid");
+        }
+        jwt_free(jwt);
+        break;
+    }
+
+    return validated;
+}
 
 /***************************************************************************
  *
