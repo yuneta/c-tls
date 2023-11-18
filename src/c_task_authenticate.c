@@ -162,9 +162,8 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag------------default---------description---------- */
 SDATA (ASN_BOOLEAN,     "offline_access",   SDF_RD,         0,              "Get offline token"),
 SDATA (ASN_JSON,        "crypto",           SDF_RD,         "{\"library\": \"openssl\"}", "Crypto config"),
-SDATA (ASN_OCTET_STR,   "auth_system",      SDF_RD,         "keycloak",     "OAuth2 System (interactive jwt)"),
-SDATA (ASN_OCTET_STR,   "auth_url",         SDF_RD,         "",             "OAuth2 Server Url (interactive jwt)"),
-SDATA (ASN_OCTET_STR,   "auth_owner",       SDF_RD,         "",             "OAuth2 Owner (interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "auth_system",      SDF_RD,         "keycloak",     "OpenID System(interactive jwt)"),
+SDATA (ASN_OCTET_STR,   "auth_url",         SDF_RD,         "",             "OpenID Endpoint (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_id",          SDF_RD,         "",             "OAuth2 User Id (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "user_passw",       0,              "",             "OAuth2 User Password (interactive jwt)"),
 SDATA (ASN_OCTET_STR,   "azp",              SDF_RD,         "",             "OAuth2 Authorized Party  (jwt's azp field - interactive jwt)"),
@@ -443,7 +442,6 @@ PRIVATE json_t *action_get_token(
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     BOOL offline_access = gobj_read_bool_attr(gobj, "offline_access");
-    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
     const char *azp= gobj_read_str_attr(gobj, "azp");
     const char *user_id = gobj_read_str_attr(gobj, "user_id");
     const char *user_passw = gobj_read_str_attr(gobj, "user_passw");
@@ -454,9 +452,8 @@ PRIVATE json_t *action_get_token(
             char resource[PATH_MAX];
             snprintf(
                 resource, sizeof(resource),
-                "%s/realms/%s/protocol/openid-connect/token",
-                priv->path,
-                auth_owner
+                "%s/protocol/openid-connect/token",
+                priv->path
             );
 
             json_t *jn_headers = json_pack("{s:s}",
@@ -509,7 +506,10 @@ PRIVATE json_t *result_get_token(
         json_object_set_new(
             output_data_,
             "comment",
-            json_sprintf("Check your user or password: %s", http_status_str(response_status_code))
+            json_sprintf("Something went wrong, check your user or password: %s, %s",
+                http_status_str(response_status_code),
+                kw_get_str(kw, "body`error", "", 0)
+            )
         );
 
         publish_token(gobj, -1, output_data_);
@@ -623,7 +623,6 @@ PRIVATE json_t *action_logout(
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
     const char *auth_system = gobj_read_str_attr(gobj, "auth_system");
-    const char *auth_owner = gobj_read_str_attr(gobj, "auth_owner");
     const char *azp = gobj_read_str_attr(gobj, "azp");
     const char *access_token = gobj_read_str_attr(gobj, "access_token");
     const char *refresh_token = gobj_read_str_attr(gobj, "refresh_token");
@@ -634,9 +633,8 @@ PRIVATE json_t *action_logout(
             char resource[PATH_MAX];
             snprintf(
                 resource, sizeof(resource),
-                "%s/realms/%s/protocol/openid-connect/logout",
-                priv->path,
-                auth_owner
+                "%s/protocol/openid-connect/logout",
+                priv->path
             );
 
             char authorization[1024];
