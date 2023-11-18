@@ -8,10 +8,8 @@
  *          All Rights Reserved.
  ***********************************************************************/
 #include <unistd.h>
-#include <sys/types.h>
 #include <grp.h>
 #include <string.h>
-#include <stdio.h>
 #include <jwt.h>
 #include "c_authz.h"
 
