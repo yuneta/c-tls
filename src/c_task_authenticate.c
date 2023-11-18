@@ -450,11 +450,7 @@ PRIVATE json_t *action_get_token(
         CASES("keycloak")
         DEFAULTS
             char resource[PATH_MAX];
-            snprintf(
-                resource, sizeof(resource),
-                "%s/protocol/openid-connect/token",
-                priv->path
-            );
+            build_path2(resource, sizeof(resource), priv->path, "protocol/openid-connect/token");
 
             json_t *jn_headers = json_pack("{s:s}",
                 "Content-Type", "application/x-www-form-urlencoded"
