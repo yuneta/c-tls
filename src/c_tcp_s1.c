@@ -474,6 +474,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
             "msg",          "%s", "on_connection_cb FAILED",
             "status",       "%d", status,
+            "url",          "%s", priv->url,
             "uv_error",     "%s", uv_err_name(status),
             NULL
         );
