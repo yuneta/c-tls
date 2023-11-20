@@ -472,7 +472,8 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
             "gobj",         "%s", gobj_full_name(gobj),
             "function",     "%s", __FUNCTION__,
             "msgset",       "%s", MSGSET_CONNECT_DISCONNECT,
-            "msg",          "%s", "??? FAILED",
+            "msg",          "%s", "on_connection_cb FAILED",
+            "status",       "%d", status,
             NULL
         );
         return;
