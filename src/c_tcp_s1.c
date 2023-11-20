@@ -478,7 +478,7 @@ PRIVATE void on_connection_cb(uv_stream_t *uv_server_socket, int status)
             "uv_error",     "%s", uv_err_name(status),
             NULL
         );
-        return;
+        // return; HACK si retorna se mete en bucle llamando a este callback
     }
 
     /*--------------------------------------*
