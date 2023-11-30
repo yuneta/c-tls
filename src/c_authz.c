@@ -118,6 +118,7 @@ SDATA_END()
 };
 PRIVATE sdata_desc_t pm_users[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_JSON,      "filter",       0,              0,          "Filter"),
 SDATA_END()
 };
 PRIVATE sdata_desc_t pm_user_roles[] = {
@@ -158,6 +159,7 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,          "Max sessions per user"),
 SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, 0,          "JWT public keys"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
+SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,                  0,          "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,                  0,          "subscriber of output-events. Not a child gobj."),
@@ -256,6 +258,7 @@ PRIVATE void mt_create(hgobj gobj)
         "authzs",
         TRUE
     );
+    gobj_write_str_attr(gobj, "tranger_path", path);
 
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
@@ -1184,11 +1187,12 @@ PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    json_t *jn_filter = kw_get_dict(kw, "filter", 0, KW_EXTRACT);
 
     json_t *jn_users = gobj_list_nodes(
         priv->gobj_treedb,
         "users",
-        json_incref(kw),
+        jn_filter,
         json_pack("{s:b}",
             "with_metadata", 1
         ),
