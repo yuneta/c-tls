@@ -85,6 +85,11 @@ PRIVATE json_t *cmd_disable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_add_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_remove_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_enable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_disable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 
@@ -121,6 +126,29 @@ PRIVATE sdata_desc_t pm_users[] = {
 SDATAPM (ASN_JSON,      "filter",       0,              0,          "Filter"),
 SDATA_END()
 };
+
+PRIVATE sdata_desc_t pm_add_user[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_remove_user[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_enable_user[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATA_END()
+};
+PRIVATE sdata_desc_t pm_disable_user[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATA_END()
+};
+
+PRIVATE sdata_desc_t pm_roles[] = {
+/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_JSON,      "filter",       0,              0,          "Filter"),
+SDATA_END()
+};
 PRIVATE sdata_desc_t pm_user_roles[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
 SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
@@ -144,10 +172,15 @@ SDATACM (ASN_SCHEMA,    "remove-iss",       0,          pm_rm_iss,  cmd_remove_i
 SDATACM (ASN_SCHEMA,    "enable-iss",       0,          pm_rm_iss,  cmd_enable_iss, "Enable OAuth2 Issuer"),
 SDATACM (ASN_SCHEMA,    "disable-iss",      0,          pm_rm_iss,  cmd_disable_iss,"Disable OAuth2 Issuer"),
 
-SDATACM (ASN_SCHEMA,    "authzs",           0,          pm_authzs,      cmd_authzs,     "Authorization's help"),
-SDATACM (ASN_SCHEMA,    "users",            0,          pm_users,       cmd_users,   "List users"),
-SDATACM (ASN_SCHEMA,    "user-roles",       0,          pm_user_roles,  cmd_user_roles,     "Get roles of user"),
-SDATACM (ASN_SCHEMA,    "user-authzs",      0,          pm_user_authzs, cmd_user_authzs,     "Get permissions of user"),
+SDATACM (ASN_SCHEMA,    "authzs",           0,          pm_authzs,      cmd_authzs, "Authorization's help"),
+SDATACM (ASN_SCHEMA,    "users",            0,          pm_users,       cmd_users,   "List users and their roles"),
+SDATACM (ASN_SCHEMA,    "add-user",         0,          pm_add_user,    cmd_add_user,"Add user"),
+SDATACM (ASN_SCHEMA,    "remove-user",      0,          pm_remove_user, cmd_remove_user,"Remove user"),
+SDATACM (ASN_SCHEMA,    "enable-user",      0,          pm_enable_user, cmd_enable_user,"Enable user"),
+SDATACM (ASN_SCHEMA,    "disable-user",     0,          pm_disable_user,cmd_disable_user,"Disable user"),
+SDATACM (ASN_SCHEMA,    "roles",            0,          pm_roles,       cmd_roles,   "List roles"),
+SDATACM (ASN_SCHEMA,    "user-roles",       0,          pm_user_roles,  cmd_user_roles, "Get roles of user"),
+SDATACM (ASN_SCHEMA,    "user-authzs",      0,          pm_user_authzs, cmd_user_authzs, "Get permissions of user"),
 SDATA_END()
 };
 
@@ -1224,6 +1257,114 @@ PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
         kw  // owned
     );
 }
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_add_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        0,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_remove_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        0,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_enable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        0,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_disable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        0,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE json_t *cmd_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+{
+    PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    json_t *jn_filter = kw_get_dict(kw, "filter", 0, KW_EXTRACT);
+    json_t *jn_roles = gobj_list_nodes(
+        priv->gobj_treedb,
+        "roles",
+        jn_filter,
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
+    );
+
+    json_t *jn_data = jn_roles;
+
+    return msg_iev_build_webix(
+        gobj,
+        0,
+        0,
+        0,
+        jn_data,
+        kw  // owned
+    );
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+// add_user
+//update-node topic_name=users record={"id":"yuneta_admin@mulesol.es","roles":"roles^root^users"} options={"create":1,"autolink":1}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+// remove_user
 
 /***************************************************************************
  *
