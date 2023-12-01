@@ -85,8 +85,7 @@ PRIVATE json_t *cmd_disable_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 
 PRIVATE json_t *cmd_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
-PRIVATE json_t *cmd_add_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
-PRIVATE json_t *cmd_remove_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
+PRIVATE json_t *cmd_create_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_enable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_disable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
 PRIVATE json_t *cmd_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src);
@@ -127,20 +126,21 @@ SDATAPM (ASN_JSON,      "filter",       0,              0,          "Filter"),
 SDATA_END()
 };
 
-PRIVATE sdata_desc_t pm_add_user[] = {
+PRIVATE sdata_desc_t pm_create_user[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
-SDATA_END()
-};
-PRIVATE sdata_desc_t pm_remove_user[] = {
-/*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
+SDATAPM (ASN_OCTET_STR, "role",         0,              0,          "Roles, format: roles^ROLE^users"),
+SDATAPM (ASN_BOOLEAN,   "disabled",     0,              0,          "Disabled"),
 SDATA_END()
 };
 PRIVATE sdata_desc_t pm_enable_user[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
 SDATA_END()
 };
 PRIVATE sdata_desc_t pm_disable_user[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
+SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
 SDATA_END()
 };
 
@@ -163,24 +163,23 @@ SDATA_END()
 PRIVATE const char *a_help[] = {"h", "?", 0};
 
 PRIVATE sdata_desc_t command_table[] = {
-/*-CMD---type-----------name----------------alias-------items-----------json_fn---------description---------- */
-SDATACM (ASN_SCHEMA,    "help",             a_help,     pm_help,        cmd_help,       "Command's help"),
+/*-CMD---type-----------name----------------alias---items-----------json_fn---------description---------- */
+SDATACM (ASN_SCHEMA,    "help",             a_help, pm_help,        cmd_help,       "Command's help"),
 
-SDATACM (ASN_SCHEMA,    "list-iss",         0,          0,          cmd_list_iss,   "List OAuth2 Issuers"),
-SDATACM (ASN_SCHEMA,    "add-iss",          0,          pm_add_iss, cmd_add_iss,    "Add OAuth2 Issuer"),
-SDATACM (ASN_SCHEMA,    "remove-iss",       0,          pm_rm_iss,  cmd_remove_iss, "Remove OAuth2 Issuer"),
-SDATACM (ASN_SCHEMA,    "enable-iss",       0,          pm_rm_iss,  cmd_enable_iss, "Enable OAuth2 Issuer"),
-SDATACM (ASN_SCHEMA,    "disable-iss",      0,          pm_rm_iss,  cmd_disable_iss,"Disable OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "list-iss",         0,      0,              cmd_list_iss,   "List OAuth2 Issuers"),
+SDATACM (ASN_SCHEMA,    "add-iss",          0,      pm_add_iss,     cmd_add_iss,    "Add OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "remove-iss",       0,      pm_rm_iss,      cmd_remove_iss, "Remove OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "enable-iss",       0,      pm_rm_iss,      cmd_enable_iss, "Enable OAuth2 Issuer"),
+SDATACM (ASN_SCHEMA,    "disable-iss",      0,      pm_rm_iss,      cmd_disable_iss,"Disable OAuth2 Issuer"),
 
-SDATACM (ASN_SCHEMA,    "authzs",           0,          pm_authzs,      cmd_authzs, "Authorization's help"),
-SDATACM (ASN_SCHEMA,    "users",            0,          pm_users,       cmd_users,   "List users and their roles"),
-SDATACM (ASN_SCHEMA,    "add-user",         0,          pm_add_user,    cmd_add_user,"Add user"),
-SDATACM (ASN_SCHEMA,    "remove-user",      0,          pm_remove_user, cmd_remove_user,"Remove user"),
-SDATACM (ASN_SCHEMA,    "enable-user",      0,          pm_enable_user, cmd_enable_user,"Enable user"),
-SDATACM (ASN_SCHEMA,    "disable-user",     0,          pm_disable_user,cmd_disable_user,"Disable user"),
-SDATACM (ASN_SCHEMA,    "roles",            0,          pm_roles,       cmd_roles,   "List roles"),
-SDATACM (ASN_SCHEMA,    "user-roles",       0,          pm_user_roles,  cmd_user_roles, "Get roles of user"),
-SDATACM (ASN_SCHEMA,    "user-authzs",      0,          pm_user_authzs, cmd_user_authzs, "Get permissions of user"),
+SDATACM (ASN_SCHEMA,    "authzs",           0,      pm_authzs,      cmd_authzs,     "Authorization's help"),
+SDATACM (ASN_SCHEMA,    "users",            0,      pm_users,       cmd_users,      "List users and their roles"),
+SDATACM (ASN_SCHEMA,    "create-user",      0,      pm_create_user, cmd_create_user,"Create or update user"),
+SDATACM (ASN_SCHEMA,    "enable-user",      0,      pm_enable_user, cmd_enable_user,"Enable user"),
+SDATACM (ASN_SCHEMA,    "disable-user",     0,      pm_disable_user,cmd_disable_user,"Disable user"),
+SDATACM (ASN_SCHEMA,    "roles",            0,      pm_roles,       cmd_roles,      "List roles"),
+SDATACM (ASN_SCHEMA,    "user-roles",       0,      pm_user_roles,  cmd_user_roles, "Get roles of user"),
+SDATACM (ASN_SCHEMA,    "user-authzs",      0,      pm_user_authzs, cmd_user_authzs,"Get permissions of user"),
 SDATA_END()
 };
 
@@ -1261,35 +1260,52 @@ PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE json_t *cmd_add_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
+PRIVATE json_t *cmd_create_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    const char *username = kw_get_str(kw, "username", "", 0);
 
-    return msg_iev_build_webix(
-        gobj,
-        0,
-        0,
-        0,
-        0,
-        kw  // owned
+    if(empty_string(username)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What username?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    gobj_send_event(gobj, "EV_ADD_USER", json_incref(kw), src);
+
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
     );
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE json_t *cmd_remove_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
-{
-    PRIVATE_DATA *priv = gobj_priv_data(gobj);
-
-    return msg_iev_build_webix(
-        gobj,
-        0,
-        0,
-        0,
-        0,
-        kw  // owned
-    );
+    if(!user) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("Can't create user: %s", username),
+            0,
+            0,
+            kw  // owned
+        );
+    } else {
+        return msg_iev_build_webix(
+            gobj,
+            0,
+            json_sprintf("User created or updated: %s", username),
+            0,
+            user,
+            kw  // owned
+        );
+    }
 }
 
 /***************************************************************************
@@ -1298,13 +1314,56 @@ PRIVATE json_t *cmd_remove_user(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 PRIVATE json_t *cmd_enable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    const char *username = kw_get_str(kw, "username", "", 0);
+
+    if(empty_string(username)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What username?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
+    );
+    if(!user) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("User not found: '%s'", username),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_object_set_new(user, "disabled", json_false());
+    user = gobj_update_node(
+        priv->gobj_treedb,
+        "users",
+        user,
+        json_pack("{s:b}",
+            "with_metadata", 0
+        ),
+        src
+    );
 
     return msg_iev_build_webix(
         gobj,
         0,
+        json_sprintf("User enabled: %s", username),
         0,
-        0,
-        0,
+        user,
         kw  // owned
     );
 }
@@ -1315,13 +1374,59 @@ PRIVATE json_t *cmd_enable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj s
 PRIVATE json_t *cmd_disable_user(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
+    const char *username = kw_get_str(kw, "username", "", 0);
+
+    if(empty_string(username)) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("What username?"),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_t *user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        json_pack("{s:b}",
+            "with_metadata", 1
+        ),
+        gobj
+    );
+    if(!user) {
+        return msg_iev_build_webix(
+            gobj,
+            -1,
+            json_sprintf("User not found: '%s'", username),
+            0,
+            0,
+            kw  // owned
+        );
+    }
+
+    json_object_set_new(user, "username", json_string(username));
+    json_object_set_new(user, "disabled", json_true());
+    gobj_send_event(gobj, "EV_REJECT_USER", user, src);
+
+    user = gobj_get_node(
+        priv->gobj_treedb,
+        "users",
+        json_pack("{s:s}", "id", username),
+        json_pack("{s:b}",
+            "with_metadata", 0
+        ),
+        gobj
+    );
 
     return msg_iev_build_webix(
         gobj,
         0,
+        json_sprintf("User disabled: %s", username),
         0,
-        0,
-        0,
+        user,
         kw  // owned
     );
 }
@@ -1354,17 +1459,6 @@ PRIVATE json_t *cmd_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
         kw  // owned
     );
 }
-
-/***************************************************************************
- *
- ***************************************************************************/
-// add_user
-//update-node topic_name=users record={"id":"yuneta_admin@mulesol.es","roles":"roles^root^users"} options={"create":1,"autolink":1}
-
-/***************************************************************************
- *
- ***************************************************************************/
-// remove_user
 
 /***************************************************************************
  *
@@ -2321,7 +2415,7 @@ PRIVATE int ac_on_close(hgobj gobj, const char *event, json_t *kw, hgobj src)
 /***************************************************************************
  *  Create or update a user
  ***************************************************************************/
-PRIVATE int ac_add_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
+PRIVATE int ac_create_user(hgobj gobj, const char *event, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     const char *username = kw_get_str(kw, "username", "", KW_REQUIRED);
@@ -2479,7 +2573,7 @@ PRIVATE const char *state_names[] = {
 };
 
 PRIVATE EV_ACTION ST_IDLE[] = {
-    {"EV_ADD_USER",             ac_add_user,            0},
+    {"EV_ADD_USER",             ac_create_user,            0},
     {"EV_REJECT_USER",          ac_reject_user,         0},
     {"EV_ON_CLOSE",             ac_on_close,            0},
     {0,0,0}
@@ -2685,7 +2779,7 @@ PUBLIC json_t *authenticate_parser(hgobj gobj_service, json_t *kw, hgobj src)
     if(!gobj) {
         /*
          *  HACK if this function is called is because the authz system is configured in setup.
-         *  If the service is not found deny all.
+         *  If the service is not found, deny all.
          */
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
