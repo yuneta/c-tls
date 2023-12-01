@@ -1188,7 +1188,7 @@ PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     json_t *jn_filter = kw_get_dict(kw, "filter", 0, KW_EXTRACT);
-
+    char temp[256];
     json_t *jn_users = gobj_list_nodes(
         priv->gobj_treedb,
         "users",
@@ -1199,7 +1199,20 @@ PRIVATE json_t *cmd_users(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
         gobj
     );
 
-    json_t *jn_data = kwid_get_ids(jn_users);
+    json_t *jn_data = json_array();
+    int idx; json_t *jn_user;
+    json_array_foreach(jn_users, idx, jn_user) {
+        const char *user_id = kw_get_str(jn_user, "id", "", 0);
+        json_t *jn_user_roles = kw_get_list(jn_user, "roles", 0, 0);
+        json_t *jn_roles_ids = kwid_get_ids(jn_user_roles);
+        char *roles_ids = json2uglystr(jn_roles_ids);
+        snprintf(temp, sizeof(temp), "%-36s %s", user_id, roles_ids);
+        change_char(temp, '"', '\'');
+        json_array_append_new(jn_data, json_string(temp));
+        JSON_DECREF(jn_roles_ids)
+        GBMEM_FREE(roles_ids)
+    }
+
     json_decref(jn_users);
 
     return msg_iev_build_webix(
