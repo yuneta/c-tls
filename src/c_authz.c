@@ -129,7 +129,7 @@ SDATA_END()
 PRIVATE sdata_desc_t pm_create_user[] = {
 /*-PM----type-----------name------------flag------------default-----description---------- */
 SDATAPM (ASN_OCTET_STR, "username",     0,              0,          "Username"),
-SDATAPM (ASN_OCTET_STR, "role",         0,              0,          "Roles, format: roles^ROLE^users"),
+SDATAPM (ASN_OCTET_STR, "role",         0,              0,          "Role, format: roles^ROLE^users"),
 SDATAPM (ASN_BOOLEAN,   "disabled",     0,              0,          "Disabled"),
 SDATA_END()
 };
@@ -174,7 +174,7 @@ SDATACM (ASN_SCHEMA,    "disable-iss",      0,      pm_rm_iss,      cmd_disable_
 
 SDATACM (ASN_SCHEMA,    "authzs",           0,      pm_authzs,      cmd_authzs,     "Authorization's help"),
 SDATACM (ASN_SCHEMA,    "users",            0,      pm_users,       cmd_users,      "List users and their roles"),
-SDATACM (ASN_SCHEMA,    "create-user",      0,      pm_create_user, cmd_create_user,"Create or update user"),
+SDATACM (ASN_SCHEMA,    "create-user",      0,      pm_create_user, cmd_create_user,"Create or update user (see ROLE format)"),
 SDATACM (ASN_SCHEMA,    "enable-user",      0,      pm_enable_user, cmd_enable_user,"Enable user"),
 SDATACM (ASN_SCHEMA,    "disable-user",     0,      pm_disable_user,cmd_disable_user,"Disable user"),
 SDATACM (ASN_SCHEMA,    "roles",            0,      pm_roles,       cmd_roles,      "List roles"),
