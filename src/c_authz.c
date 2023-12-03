@@ -189,6 +189,7 @@ SDATA_END()
 PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag----------------default-----description---------- */
 SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,          "Max sessions per user"),
+SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_WR|SDF_PERSIST, "",         "JWT public key, for use case: only one iss"),
 SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, 0,          "JWT public keys"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
 SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value"),
@@ -845,7 +846,21 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
  ***************************************************************************/
 PRIVATE json_t *cmd_list_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
-    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+    json_t *jwt_public_keys = json_deep_copy(gobj_read_json_attr(gobj, "jwt_public_keys"));
+    const char *jwt_public_key = gobj_read_str_attr(gobj, "jwt_public_key");
+    if(!empty_string(jwt_public_key)) {
+        json_array_insert_new(
+            jwt_public_keys,
+            0,
+            json_pack("{s:s, s:s, s:b, s:s, s:s}",
+                "iss", "",
+                "description", "__default_public_key__",
+                "disabled", 0,
+                "algorithm", "RS256",
+                "pkey", jwt_public_key
+            )
+        );
+    }
 
     json_t *jn_schema = json_record_to_schema(oauth_iss_desc);
 
@@ -854,7 +869,7 @@ PRIVATE json_t *cmd_list_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
         0,
         0,
         jn_schema,
-        json_incref(jwt_public_keys),
+        jwt_public_keys,
         kw  // owned
     );
 }
@@ -1607,7 +1622,21 @@ PRIVATE int create_jwt_validations(hgobj gobj)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+    json_t *jwt_public_keys = json_deep_copy(gobj_read_json_attr(gobj, "jwt_public_keys"));
+    const char *jwt_public_key = gobj_read_str_attr(gobj, "jwt_public_key");
+    if(!empty_string(jwt_public_key)) {
+        json_array_insert_new(
+            jwt_public_keys,
+            0,
+            json_pack("{s:s, s:s, s:b, s:s, s:s}",
+                "iss", "",
+                "description", "__default_public_key__",
+                "disabled", 0,
+                "algorithm", "RS256",
+                "pkey", jwt_public_key
+            )
+        );
+    }
 
     priv->jn_validations = json_array();
     int idx; json_t *jn_record;
@@ -1618,6 +1647,7 @@ PRIVATE int create_jwt_validations(hgobj gobj)
         create_validation(gobj, jn_validation);
     }
 
+    JSON_DECREF(jwt_public_keys)
     return 0;
 }
 
