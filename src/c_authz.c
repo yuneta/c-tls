@@ -190,7 +190,7 @@ PRIVATE sdata_desc_t tattr_desc[] = {
 /*-ATTR-type------------name----------------flag----------------default-----description---------- */
 SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,          "Max sessions per user"),
 SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_WR|SDF_PERSIST, "",         "JWT public key, for use case: only one iss"),
-SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, 0,          "JWT public keys"),
+SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, "[]",       "JWT public keys"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
 SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
@@ -847,6 +847,9 @@ PRIVATE json_t *cmd_help(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 PRIVATE json_t *cmd_list_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
 {
     json_t *jwt_public_keys = json_deep_copy(gobj_read_json_attr(gobj, "jwt_public_keys"));
+    if(!jwt_public_keys) {
+        jwt_public_keys = json_array();
+    }
     const char *jwt_public_key = gobj_read_str_attr(gobj, "jwt_public_key");
     if(!empty_string(jwt_public_key)) {
         json_array_insert_new(
@@ -909,6 +912,11 @@ PRIVATE json_t *cmd_add_iss(hgobj gobj, const char *cmd, json_t *kw, hgobj src)
     }
 
     json_t *jwt_public_keys = gobj_read_json_attr(gobj, "jwt_public_keys");
+    if(!jwt_public_keys) {
+        jwt_public_keys = json_array();
+        gobj_write_json_attr(gobj, "jwt_public_keys", jwt_public_keys);
+        json_decref(jwt_public_keys);
+    }
 
     /*
      *  Create new record
