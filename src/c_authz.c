@@ -1858,10 +1858,11 @@ PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload, c
         jwt_valid_t *jwt_valid = (jwt_valid_t *)(size_t)kw_get_int(jn_validation, "jwt_valid", 0, KW_REQUIRED);
         jwt_valid_set_now(jwt_valid, time(NULL));
 
-        *status = get_validation_status(jwt_valid_get_status(jwt_valid));
         if(jwt_validate(jwt, jwt_valid)==0) {
             validated = TRUE;
+            *status = get_validation_status(jwt_valid_get_status(jwt_valid));
         } else {
+            *status = get_validation_status(jwt_valid_get_status(jwt_valid));
             log_info(0,
                 "gobj",             "%s", gobj_full_name(gobj),
                 "function",         "%s", __FUNCTION__,
