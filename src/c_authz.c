@@ -47,7 +47,7 @@ PRIVATE int create_jwt_validations(hgobj gobj);
 PRIVATE int destroy_jwt_validations(hgobj gobj);
 PRIVATE int create_validation(hgobj gobj, json_t *jn_pkey);
 PRIVATE GBUFFER *format_to_pem(hgobj gobj, const char *pkey, size_t pkey_len);
-PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload);
+PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload, const char **status);
 
 /***************************************************************************
  *              Resources
@@ -601,12 +601,13 @@ PRIVATE json_t *mt_authenticate(hgobj gobj, json_t *kw, hgobj src)
      *      HERE with user JWT
      *-------------------------------*/
     json_t *jwt_payload = NULL;
-    if(!verify_token(gobj, jwt, &jwt_payload)) {
+    const char *status;
+    if(!verify_token(gobj, jwt, &jwt_payload, &status)) {
         JSON_DECREF(jwt_payload);
         KW_DECREF(kw);
         return json_pack("{s:i, s:s}",
             "result", -1,
-            "comment", "JWT validation failure"
+            "comment", status
         );
     }
 
@@ -1822,7 +1823,7 @@ PRIVATE const char *get_validation_status(unsigned status)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload)
+PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload, const char **status)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
     BOOL validated = FALSE;
@@ -1857,6 +1858,7 @@ PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload)
         jwt_valid_t *jwt_valid = (jwt_valid_t *)(size_t)kw_get_int(jn_validation, "jwt_valid", 0, KW_REQUIRED);
         jwt_valid_set_now(jwt_valid, time(NULL));
 
+        *status = get_validation_status(jwt_valid_get_status(jwt_valid));
         if(jwt_validate(jwt, jwt_valid)==0) {
             validated = TRUE;
         } else {
@@ -1865,7 +1867,7 @@ PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload)
                 "function",         "%s", __FUNCTION__,
                 "msgset",           "%s", MSGSET_INFO,
                 "msg",              "%s", "jwt invalid",
-                "status",           "%s", get_validation_status(jwt_valid_get_status(jwt_valid)),
+                "status",           "%s", *status,
                 NULL
             );
             log_debug_json(0, *jwt_payload, "jwt invalid");
