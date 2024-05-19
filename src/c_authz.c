@@ -1741,7 +1741,7 @@ PRIVATE int create_validation(hgobj gobj, json_t *jn_validation)
     } else {
         jwt_valid_set_headers(jwt_valid, 1);
         jwt_valid_set_now(jwt_valid, time(NULL));
-        if(!empty_string(iss)) {
+        if(!empty_string(iss) && strcmp(iss, "*")!=0) {
             jwt_valid_add_grant(jwt_valid, "iss", iss);
         }
     }
