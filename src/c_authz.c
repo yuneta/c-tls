@@ -1504,6 +1504,9 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         );
     }
 
+    /*
+     *  TODO si el usuario no existe sale un warning, para evitarlo pregunta primero por el user.
+     */
     json_t *roles = gobj_node_parents(
         priv->gobj_treedb,
         "users", // topic_name
