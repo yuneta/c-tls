@@ -1538,6 +1538,8 @@ PRIVATE json_t *cmd_user_roles(hgobj gobj, const char *cmd, json_t *kw, hgobj sr
         gobj
     );
 
+    JSON_DECREF(user)
+
     return msg_iev_build_webix(
         gobj,
         0,
@@ -1643,6 +1645,7 @@ PRIVATE json_t *cmd_user_authzs(hgobj gobj, const char *cmd, json_t *kw, hgobj s
         json_decref(tree_roles);
     }
     json_decref(roles_refs);
+    JSON_DECREF(user)
 
     return msg_iev_build_webix(
         gobj,
