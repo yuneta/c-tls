@@ -1879,6 +1879,7 @@ PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload, c
     json_array_foreach(priv->jn_validations, idx, jn_validation) {
         BOOL disabled = kw_get_bool(jn_validation, "disabled", 0, KW_REQUIRED);
         if(disabled) {
+            *status = "NO OAuth2 Issuer found";
             continue;
         }
         const char *pkey = kw_get_str(jn_validation, "pkey", "", KW_REQUIRED);
@@ -1889,6 +1890,7 @@ PRIVATE BOOL verify_token(hgobj gobj, const char *token, json_t **jwt_payload, c
             (int)strlen(pkey)
         );
         if(ret != 0) {
+            *status = "NO OAuth2 Issuer found";
             continue;
         }
 
