@@ -192,7 +192,8 @@ SDATA (ASN_INTEGER,     "max_sessions_per_user",SDF_PERSIST,    1,          "Max
 SDATA (ASN_OCTET_STR,   "jwt_public_key",   SDF_WR|SDF_PERSIST, "",         "JWT public key, for use case: only one iss"),
 SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, "[]",       "JWT public keys"),
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
-SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value"),
+// HACK WARNING 2024-Jul-30, now if tranger_path is set then it's a client (not master)
+SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value (or not)"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,                  0,          "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,                  0,          "subscriber of output-events. Not a child gobj."),
@@ -281,22 +282,28 @@ PRIVATE void mt_create(hgobj gobj)
     /*---------------------------*
      *  Create Timeranger
      *---------------------------*/
-    char path[PATH_MAX];
-    yuneta_realm_store_dir(
-        path,
-        sizeof(path),
-        gobj_yuno_role(),
-        gobj_yuno_realm_owner(),
-        gobj_yuno_realm_id(),
-        "authzs",
-        TRUE
-    );
-    gobj_write_str_attr(gobj, "tranger_path", path);
+    const char *path = gobj_read_str_attr(gobj, "tranger_path");
+    BOOL master = FALSE;
+    if(empty_string(path)) {
+        char path_[PATH_MAX];
+        yuneta_realm_store_dir(
+            path_,
+            sizeof(path_),
+            gobj_yuno_role(),
+            gobj_yuno_realm_owner(),
+            gobj_yuno_realm_id(),
+            "authzs",
+            TRUE
+        );
+        gobj_write_str_attr(gobj, "tranger_path", path_);
+        path = gobj_read_str_attr(gobj, "tranger_path");
+        master = TRUE;
+    }
 
     json_t *kw_tranger = json_pack("{s:s, s:s, s:b, s:i}",
         "path", path,
         "filename_mask", "%Y",
-        "master", 1,
+        "master", master,
         "on_critical_error", (int)(LOG_OPT_EXIT_ZERO)
     );
     priv->gobj_tranger = gobj_create_service(
