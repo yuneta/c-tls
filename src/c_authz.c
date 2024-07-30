@@ -194,6 +194,7 @@ SDATA (ASN_JSON,        "jwt_public_keys",  SDF_WR|SDF_PERSIST, "[]",       "JWT
 SDATA (ASN_JSON,        "initial_load",     SDF_RD,             0,          "Initial data for treedb"),
 // HACK WARNING 2024-Jul-30, now if tranger_path is set then it's a client (not master)
 SDATA (ASN_OCTET_STR,   "tranger_path",     SDF_RD,             "",         "Tranger path, internal value (or not)"),
+SDATA (ASN_BOOLEAN,     "master",           SDF_RD,             FALSE,      "the master is the only that can write, internal value"),
 SDATA (ASN_POINTER,     "user_data",        0,                  0,          "user data"),
 SDATA (ASN_POINTER,     "user_data2",       0,                  0,          "more user data"),
 SDATA (ASN_POINTER,     "subscriber",       0,                  0,          "subscriber of output-events. Not a child gobj."),
@@ -227,6 +228,7 @@ typedef struct _PRIVATE_DATA {
     hgobj gobj_tranger;
     hgobj gobj_treedb;
     json_t *tranger;
+    BOOL master;
 
     json_t *users_accesses;      // dict with users opened
     json_t *jn_validations;
@@ -313,6 +315,7 @@ PRIVATE void mt_create(hgobj gobj)
         gobj
     );
     priv->tranger = gobj_read_pointer_attr(priv->gobj_tranger, "tranger");
+    gobj_write_bool_attr(gobj, "master", master);
 
     /*----------------------*
      *  Create Treedb
@@ -360,7 +363,8 @@ PRIVATE void mt_writing(hgobj gobj, const char *path)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    IF_EQ_SET_PRIV(max_sessions_per_user,           gobj_read_int32_attr)
+    IF_EQ_SET_PRIV(max_sessions_per_user,       gobj_read_int32_attr)
+    ELIF_EQ_SET_PRIV(master,                    gobj_read_bool_attr)
     END_EQ_SET_PRIV()
 }
 
@@ -2358,23 +2362,25 @@ PRIVATE int add_user_login(hgobj gobj, const char *username, json_t *jwt_payload
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    /*
-     *  Crea user en users_accesses
-     */
-    json_t *user = json_pack("{s:s, s:s, s:I, s:O}",
-        "ev", "login",
-        "username", username,
-        "tm", (json_int_t)time_in_seconds(),
-        "jwt_payload", jwt_payload
-    );
+    if(priv->master) {
+        /*
+         *  Crea user en users_accesses
+         */
+        json_t *user = json_pack("{s:s, s:s, s:I, s:O}",
+            "ev", "login",
+            "username", username,
+            "tm", (json_int_t)time_in_seconds(),
+            "jwt_payload", jwt_payload
+        );
 
-    trmsg_add_instance(
-        priv->tranger,
-        "users_accesses",
-        user, // owned
-        0,
-        0
-    );
+        trmsg_add_instance(
+            priv->tranger,
+            "users_accesses",
+            user, // owned
+            0,
+            0
+        );
+    }
 
     return 0;
 }
