@@ -2392,22 +2392,24 @@ PRIVATE int add_user_logout(hgobj gobj, const char *username)
 {
     PRIVATE_DATA *priv = gobj_priv_data(gobj);
 
-    /*
-     *  Crea user en users_accesses
-     */
-    json_t *user = json_pack("{s:s, s:s, s:I}",
-        "ev", "logout",
-        "username", username,
-        "tm", (json_int_t)time_in_seconds()
-    );
+    if(priv->master) {
+        /*
+         *  Crea user en users_accesses
+         */
+        json_t *user = json_pack("{s:s, s:s, s:I}",
+            "ev", "logout",
+            "username", username,
+            "tm", (json_int_t)time_in_seconds()
+        );
 
-    trmsg_add_instance(
-        priv->tranger,
-        "users_accesses",
-        user, // owned
-        0,
-        0
-    );
+        trmsg_add_instance(
+            priv->tranger,
+            "users_accesses",
+            user, // owned
+            0,
+            0
+        );
+    }
 
     return 0;
 }
